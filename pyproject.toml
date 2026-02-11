@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "outline-toot-backend"
+version = "0.1.0"
+description = "OpenSearch API layer for volume data management"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "BUDA Team"}
+]
+keywords = ["opensearch", "api", "fastapi", "tibetan"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "opensearch-py>=2.4.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.0",
+    "pyewts>=0.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/buda-base/outline_toot_backend"
+Repository = "https://github.com/buda-base/outline_toot_backend"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "scripts*"]
+exclude = ["tests*"]
