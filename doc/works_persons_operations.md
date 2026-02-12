@@ -11,14 +11,14 @@ Each `work` / `person` document contains:
 
 ```json
 {
-  "_id": "WA12345",
+  "id": "WA12345",
   "type": "work/person",
   "prefLabel_bo": "…",
   "altLabel_bo": "…",
 
   "origin": "imported", # for records originally imported from BDRC, "local" for records created in the tool
 
-  "source": { # information from the BDRC db
+  "source_meta": { # information from the BDRC db
     "updated_at": "2026-02-01T10:15:00Z"
   },
 
@@ -45,13 +45,13 @@ Each `work` / `person` document contains:
 
 ### Step 1 — read changed records from BDRC (watermark)
 
-Keep a checkpoint per type, e.g. `last_source_updated_at`.
-Don't import records where `updated_at > checkpoint`.
+Keep a checkpoint per type, e.g. `last_updated_at`.
+Don't import records where `updated_at <= checkpoint`.
 
 ```json
+POST /bec/_doc/work_import_record
 {
-  "_id": "work_import_record",
-  "last_update_at": "..."
+  "last_updated_at": "..."
 }
 ```
 
@@ -68,11 +68,11 @@ Use ES **Bulk Update** with **scripted_upsert** so ES decides overwrite rules **
   "upsert": {
     "type": "work",
     "origin": "imported",
-    "source": {
+    "source_meta": {
       "updated_at": "2026-02-01T10:15:00Z"
     },
     "curation": { "modified": false, "modified_at": null, "modified_by": null, "edit_version": 0 },
-    "status": "active",
+    "record_status": "active",
     "canonical_id": null,
     "prefLabel_bo": "Imported title",
     "altLabel_bo": ["Imported title"]
@@ -80,8 +80,8 @@ Use ES **Bulk Update** with **scripted_upsert** so ES decides overwrite rules **
   "script": {
     "lang": "painless",
     "source": """
-      if (ctx._source.source == null) { ctx._source.source = [:]; }
-      ctx._source.source.updated_at = params.doc.source.updated_at;
+      if (ctx._source.source_meta == null) { ctx._source.source_meta = [:]; }
+      ctx._source.source_meta.updated_at = params.doc.source_meta.updated_at;
 
       if (ctx._source.import == null) { ctx._source.import = [:]; }
       ctx._source.import.last_run_at = params.now;
@@ -110,12 +110,12 @@ Use ES **Bulk Update** with **scripted_upsert** so ES decides overwrite rules **
       "doc": {
         "type": "work",
         "origin": "imported",
-        "source": {
+        "source_meta": {
           "updated_at": "2026-02-01T10:15:00Z"
         },
         "curation": { "modified": false, "modified_at": null, "modified_by": null, "edit_version": 0 },
         "prefLabel_bo": "Imported title",
-        "altLabel_bo": "Imported title"
+        "altLabel_bo": ["Imported title"]
       }
     }
   }
@@ -125,7 +125,7 @@ Use ES **Bulk Update** with **scripted_upsert** so ES decides overwrite rules **
 **Importer rule**
 
 * If `curation.modified == false`: import updates “source-owned” fields
-* If `curation.modified == true`: import updates only `source.*` + `import.*`, and **does not clobber curated content**
+* If `curation.modified == true`: import updates only `source_meta.*` + `import.*`, and **does not clobber curated content**
 
 ---
 
@@ -162,7 +162,7 @@ POST /bec/_update/work:WA12345
 
 ## Action: Creating a brand new local-only record
 
-Local-only records have no `source.id`.
+Local-only records have no `source_meta.id`.
 
 ```json
 POST /bec/_doc/WA1BC987
@@ -179,7 +179,7 @@ POST /bec/_doc/WA1BC987
     "edit_version": 1
   },
 
-  "status": "active",
+  "record_status": "active",
   "canonical_id": null
 }
 ```
@@ -195,10 +195,10 @@ Example: merge `WA777` into `WA12345`.
 ### Update the duplicate (loser)
 
 ```json
-POST /entities/_update/work:WA777
+POST /bec/_update/work:WA777
 {
   "doc": {
-    "status": "duplicate",
+    "record_status": "duplicate",
     "canonical_id": "WA12345",
     "curation": {
       "modified": true,
@@ -212,8 +212,8 @@ POST /entities/_update/work:WA777
 
 **Query behavior**
 
-* Search results should normally filter `status:"active"`
-* When you fetch a doc and see `status:"duplicate"`, follow `canonical_id`
+* Search results should normally filter `record_status:"active"`
+* When you fetch a doc and see `record_status:"duplicate"`, follow `canonical_id`
 
 ---
 
@@ -224,12 +224,12 @@ Keep a separate append-only ES index (`bec_changes`) to store events.
 Example event for a curator edit:
 
 ```json
-POST /entity_changes/_doc
+POST /bec_changes/_doc
 {
   "timestamp": "2026-02-12T11:30:00Z",
   "actor": "xxx",
-  "entity_type": "work",
-  "entity_id": "WA12345",
+  "type": "work",
+  "id": "WA12345",
   "action": "edit",
   "diff": {
     "title": { "from": "Imported title", "to": "Curated (fixed) title" }
@@ -241,15 +241,15 @@ POST /entity_changes/_doc
 Example event for an import update:
 
 ```json
-POST /entity_changes/_doc
+POST /bec_changes/_doc
 {
   "timestamp": "2026-02-12T09:00:00Z",
   "actor": "importer",
-  "entity_type": "work",
-  "entity_id": "WA12345",
+  "type": "work",
+  "id": "WA12345",
   "action": "import_update",
   "diff": {
-    "source.updated_at": { "from": "2026-01-01T00:00:00Z", "to": "2026-02-01T10:15:00Z" }
+    "source_meta.updated_at": { "from": "2026-01-01T00:00:00Z", "to": "2026-02-01T10:15:00Z" }
   },
   "correlation_id": "import-2026-02-12"
 }
@@ -259,7 +259,7 @@ POST /entity_changes/_doc
 
 ## Quick rules of thumb
 
-* **Never delete duplicates** → use `status:"duplicate"` + `canonical_id`
+* **Never delete duplicates** → use `record_status:"duplicate"` + `canonical_id`
 * **Imports must never overwrite curated docs** → check `curation.modified`
-* **Incremental import** → query source DB by `updated_at` watermark + Bulk update in ES
+* **Incremental import** → query BDRC by `updated_at` watermark + Bulk update in ES
 * **Audit trail** → store events in a separate index, not in the main docs

@@ -1,0 +1,18 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "timestamp": { "type": "date" },
+      "actor": { "type": "keyword" },
+      "type": { "type": "keyword" },
+      "id": { "type": "keyword" },
+      "action": { "type": "keyword" },
+      "correlation_id": { "type": "keyword" },
+      "diff": { "type": "flattened" }
+    }
+  }
+}
