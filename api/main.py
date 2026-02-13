@@ -6,9 +6,10 @@ Provides REST API endpoints for volumes, works, persons, stats, and imports.
 
 from typing import Any
 
+import orjson
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, ORJSONResponse
 from opensearchpy.exceptions import TransportError
 
 from api.config import index_name, opensearch_client
@@ -23,6 +24,7 @@ app = FastAPI(
     description="API layer for managing volumes, works, and persons in OpenSearch",
     version="0.1.0",
     root_path="/api/v1",
+    default_response_class=ORJSONResponse,
 )
 
 app.add_middleware(

@@ -9,3 +9,4 @@ pyewts
 ruff
 pyright
 ty
+orjson>=3.9.0
