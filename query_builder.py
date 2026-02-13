@@ -38,7 +38,7 @@ from pyewts import pyewts
 CONVERTER = pyewts()
 
 # Tsheg characters used to split Tibetan Unicode into tokens (syllables)
-TSHEG_CHARS = "\u0F0B\u0F0C\u0F14"  # U+0F0B tsheg, U+0F0C, U+0F14
+TSHEG_CHARS = "\u0f0b\u0f0c\u0f14"  # U+0F0B tsheg, U+0F0C, U+0F14
 TSHEG_PATTERN = re.compile(f"[{TSHEG_CHARS}\\s]+")
 
 # Number of etext inner hits to return per result
@@ -71,10 +71,41 @@ SEGMENT_FIELDS = {
 # Common Tibetan particles that should not form a standalone second phrase
 # in the two-phrase query optimisation (Unicode).
 TWO_PHRASE_STOPS_BO = {
-    "ཏུ", "དུ", "སུ", "གི", "ཀྱི", "གྱི", "གིས", "ཀྱིས", "གྱིས",
-    "ཀྱང", "ཡང", "སྟེ", "དེ", "ཏེ", "གོ", "ངོ", "དོ", "ནོ",
-    "བོ", "རོ", "སོ", "འོ", "ཏོ", "པ", "བ", "གིན", "ཀྱིན", "གྱིན",
-    "ཡིན", "པས", "པའི", "པའོ", "བས", "བའི", "ལ",
+    "ཏུ",
+    "དུ",
+    "སུ",
+    "གི",
+    "ཀྱི",
+    "གྱི",
+    "གིས",
+    "ཀྱིས",
+    "གྱིས",
+    "ཀྱང",
+    "ཡང",
+    "སྟེ",
+    "དེ",
+    "ཏེ",
+    "གོ",
+    "ངོ",
+    "དོ",
+    "ནོ",
+    "བོ",
+    "རོ",
+    "སོ",
+    "འོ",
+    "ཏོ",
+    "པ",
+    "བ",
+    "གིན",
+    "ཀྱིན",
+    "གྱིན",
+    "ཡིན",
+    "པས",
+    "པའི",
+    "པའོ",
+    "བས",
+    "བའི",
+    "ལ",
 }
 
 # ---------------------------------------------------------------------------
@@ -83,33 +114,96 @@ TWO_PHRASE_STOPS_BO = {
 
 # EWTS honorific prefixes; [pm] means p or m (expanded to two literals at load).
 _PREFIXES_EWTS = [
-    "mkhan [pm]o ", "rgya gar kyi ", "mkhan chen ", "a lag ", "a khu ",
-    "rgan ", "rgan lags ", "zhabs drung ", "mkhas grub ", "mkhas dbang ",
-    "mkhas pa ", "bla ma ", "sman pa ", "em chi ", "yongs 'dzin ",
-    "ma hA ", "sngags pa ", "sngags mo ", "sngags pa'i rgyal po ",
-    "sems dpa' chen po ", "rnal 'byor [pm]a ", "rje ", "rje btsun ",
-    "rje btsun [pm]a ", "kun mkhyen ", "lo tsA ba ", "lo tswa ba ",
-    "lo cA ba ", "lo chen ", "slob dpon ", "paN\\+Di ta ", "paN chen ",
-    "srI ", "dpal ", "dge slong ", "dge slong ma ", "dge bshes ",
-    "dge ba'i bshes gnyen ", "shAkya'i dge slong ", "'phags pa ",
-    "A rya ", "gu ru ", "sprul sku ", "a ni ", "a ni lags ",
-    "rig 'dzin ", "chen [pm]o ", "A tsar\\+yA ", "gter ston ",
-    "gter chen ", "thams cad mkhyen pa ", "rgyal dbang ", "rgyal ba ",
-    "btsun [pm]a ", "dge rgan ", "theg pa chen po'i ", "hor ",
-    "sog [pm]o ", "sog ", "a lags sha ", "khal kha ", "cha har ",
-    "jung gar ", "o rad ", "hor chin ", "thu med ", "hor pa ",
-    "na'i man ", "ne nam ", "su nyid ", "har chen ",
-    "bdrc[^a-zA-Z0-9]*", "bdr: *", "tbrc[^a-zA-Z0-9]*",
+    "mkhan [pm]o ",
+    "rgya gar kyi ",
+    "mkhan chen ",
+    "a lag ",
+    "a khu ",
+    "rgan ",
+    "rgan lags ",
+    "zhabs drung ",
+    "mkhas grub ",
+    "mkhas dbang ",
+    "mkhas pa ",
+    "bla ma ",
+    "sman pa ",
+    "em chi ",
+    "yongs 'dzin ",
+    "ma hA ",
+    "sngags pa ",
+    "sngags mo ",
+    "sngags pa'i rgyal po ",
+    "sems dpa' chen po ",
+    "rnal 'byor [pm]a ",
+    "rje ",
+    "rje btsun ",
+    "rje btsun [pm]a ",
+    "kun mkhyen ",
+    "lo tsA ba ",
+    "lo tswa ba ",
+    "lo cA ba ",
+    "lo chen ",
+    "slob dpon ",
+    "paN\\+Di ta ",
+    "paN chen ",
+    "srI ",
+    "dpal ",
+    "dge slong ",
+    "dge slong ma ",
+    "dge bshes ",
+    "dge ba'i bshes gnyen ",
+    "shAkya'i dge slong ",
+    "'phags pa ",
+    "A rya ",
+    "gu ru ",
+    "sprul sku ",
+    "a ni ",
+    "a ni lags ",
+    "rig 'dzin ",
+    "chen [pm]o ",
+    "A tsar\\+yA ",
+    "gter ston ",
+    "gter chen ",
+    "thams cad mkhyen pa ",
+    "rgyal dbang ",
+    "rgyal ba ",
+    "btsun [pm]a ",
+    "dge rgan ",
+    "theg pa chen po'i ",
+    "hor ",
+    "sog [pm]o ",
+    "sog ",
+    "a lags sha ",
+    "khal kha ",
+    "cha har ",
+    "jung gar ",
+    "o rad ",
+    "hor chin ",
+    "thu med ",
+    "hor pa ",
+    "na'i man ",
+    "ne nam ",
+    "su nyid ",
+    "har chen ",
+    "bdrc[^a-zA-Z0-9]*",
+    "bdr: *",
+    "tbrc[^a-zA-Z0-9]*",
 ]
 # EWTS honorific suffixes; (c|[sz]) expanded to c, s, z at load.
 _SUFFIXES_EWTS = [
-    " dpal bzang po", " lags", " rin po che", " sprul sku", " le'u",
-    " rgyud kyi rgyal po", " bzhugs so", " sku gzhogs",
+    " dpal bzang po",
+    " lags",
+    " rin po che",
+    " sprul sku",
+    " le'u",
+    " rgyud kyi rgyal po",
+    " bzhugs so",
+    " sku gzhogs",
     " (c|[sz])es bya ba",
 ]
 
 
-def _expand_ewts_literals(ewts_list):
+def _expand_ewts_literals(ewts_list: list[str]) -> list[str]:
     """Expand [pm] / [sz] etc. to multiple literal EWTS strings."""
     out = []
     for s in ewts_list:
@@ -125,7 +219,7 @@ def _expand_ewts_literals(ewts_list):
     return out
 
 
-def _ewts_to_unicode_patterns(ewts_list, suffix=False):
+def _ewts_to_unicode_patterns(ewts_list: list[str], *, suffix: bool = False) -> str | None:
     """Convert EWTS literal strings to a single regex pattern in Unicode."""
     expanded = _expand_ewts_literals(ewts_list)
     unicode_parts = []
@@ -158,7 +252,7 @@ _PREFIX_PAT = _ewts_to_unicode_patterns(_PREFIXES_EWTS, suffix=False)
 _SUFFIX_PAT = _ewts_to_unicode_patterns(_SUFFIXES_EWTS, suffix=True)
 
 
-def _strip_stopwords(query_str_unicode):
+def _strip_stopwords(query_str_unicode: str) -> str:
     """Strip common Tibetan honorific prefixes and suffixes (Unicode input)."""
     s = query_str_unicode
     if _PREFIX_PAT:
@@ -167,19 +261,20 @@ def _strip_stopwords(query_str_unicode):
         s = _SUFFIX_PAT.sub("", s)
     return s.strip()
 
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _split_tshegs(s):
+def _split_tshegs(s: str) -> list[str]:
     """Split Tibetan Unicode string on tshegs (and spaces); return list of tokens."""
     if not s or not s.strip():
         return []
     return [w for w in TSHEG_PATTERN.split(s.strip()) if w]
 
 
-def _fields_weighted(fields):
+def _fields_weighted(fields: dict[str, float]) -> list[str]:
     """Return ``['field^weight', ...]`` from a ``{field: weight}`` dict."""
     return [f"{f}^{w}" for f, w in fields.items()]
 
@@ -189,7 +284,7 @@ def _fields_weighted(fields):
 # ---------------------------------------------------------------------------
 
 
-def _etext_query(query_str_bo, exact=False):
+def _etext_query(query_str_bo: str, *, exact: bool = False) -> dict:
     """``has_child`` query targeting etext chunk content."""
     field = "chunks.text_bo" + (".exact" if exact else "")
     match = {"match_phrase": {field: query_str_bo}}
@@ -221,7 +316,7 @@ def _etext_query(query_str_bo, exact=False):
     }
 
 
-def _segments_query(query_str_bo, fields_weighted, slop=0):
+def _segments_query(query_str_bo: str, fields_weighted: list[str], *, slop: int = 0) -> dict:
     """Nested query matching text inside ``segments`` (title, author name)."""
     return {
         "nested": {
@@ -247,7 +342,7 @@ def _segments_query(query_str_bo, fields_weighted, slop=0):
     }
 
 
-def _highlight_json(strings_bo):
+def _highlight_json(strings_bo: list[str]) -> dict:
     """Build the ``highlight`` section of the OpenSearch request."""
     field_names = list(TOP_LEVEL_FIELDS.keys())
     should = []
@@ -278,7 +373,7 @@ def _highlight_json(strings_bo):
 # ---------------------------------------------------------------------------
 
 
-def _big_query(query_str_bo):
+def _big_query(query_str_bo: str) -> tuple[dict, dict]:
     """Assemble the primary multi-clause search query (Unicode only)."""
     query_str_bo = query_str_bo.strip()
     if not query_str_bo:
@@ -323,7 +418,7 @@ def _big_query(query_str_bo):
     if n_tokens > 1:
         mid = n_tokens // 2
         cuts = []
-        for n in range(0, mid + 1):
+        for n in range(mid + 1):
             if not n:
                 cuts.append(mid)
             else:
@@ -336,8 +431,8 @@ def _big_query(query_str_bo):
             if len(dis_max) >= 18 - n_tokens * 0.9:
                 break
 
-            p1_bo = "\u0F0B".join(words_bo[:cut])
-            p2_bo = "\u0F0B".join(words_bo[cut:])
+            p1_bo = "\u0f0b".join(words_bo[:cut])
+            p2_bo = "\u0f0b".join(words_bo[cut:])
             p2_single = words_bo[cut] if cut < n_tokens else ""
 
             # Skip if the second phrase is a single common particle
@@ -375,7 +470,7 @@ def _big_query(query_str_bo):
 # ---------------------------------------------------------------------------
 
 
-def build_search_query(query_input):
+def build_search_query(query_input: str | dict) -> dict:
     """Build an elaborate OpenSearch query from a string or a simple query object.
 
     Args:
@@ -434,8 +529,8 @@ if __name__ == "__main__":
     import json
 
     for test in ["བཀའ་འགྱུར", "མི་ལ་རས་པ"]:
-        print(f"\n{'=' * 60}")
-        print(f"Query: {test}")
-        print("=" * 60)
+        print(f"\n{'=' * 60}")  # noqa: T201
+        print(f"Query: {test}")  # noqa: T201
+        print("=" * 60)  # noqa: T201
         result = build_search_query(test)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        print(json.dumps(result, indent=2, ensure_ascii=False))  # noqa: T201

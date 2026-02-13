@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Outline tool backend"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 authors = [
     {name = "BUDA Team"}
 ]
@@ -50,3 +50,21 @@ Repository = "https://github.com/buda-base/outline_tool_backend"
 where = ["."]
 include = ["api*", "scripts*"]
 exclude = ["tests*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "BLE001",  # Do not catch blind exception
+    "C901",    # function too complex
+    "D",
+    "COM812",  # Trailing comma missing
+    "TD",      # TODO comments
+    "PLR2004", # Magic value used in comparison
+    "PLR0911", # Too many return statements
+    "PLR0913", # Too many arguments in function definition
+    "TC003",   # Move standard library import into a type-checking block
+]
