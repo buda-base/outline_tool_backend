@@ -101,7 +101,7 @@ def list_volumes(
         body,
         size=limit,
         offset=offset,
-        source_excludes=["text", "chunks", "pages", "segments"],
+        source_excludes=["chunks", "pages", "segments"],
     )
     total: int = response["hits"]["total"]["value"]
     items = [VolumeOutput.model_validate(h) for h in _extract_hits(response)]

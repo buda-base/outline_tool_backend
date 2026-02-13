@@ -16,7 +16,7 @@ from rdflib import Graph, Namespace
 
 from api.config import Config
 from api.models import Chunk, DocumentType, PageEntry, VolumeStatus
-from api.services.opensearch import _index_document, _volume_doc_id
+from api.services.opensearch import _get_document, _index_document, _volume_doc_id
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +195,7 @@ def fetch_volume_metadata(i_id: str) -> dict[str, int | str | None]:
 
 
 def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
-    """Split text into chunks of ~chunk_size chars, breaking at Tibetan sentence endings."""
+    """Split text into chunks of ~chunk_size chars, breaking at Tibetan sentence endings or newlines."""
     text_len = len(text)
     if text_len <= chunk_size:
         return [Chunk(cstart=0, cend=text_len, text_bo=text)] if text else []
@@ -205,6 +205,7 @@ def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
     chunks: list[Chunk] = []
     start = 0
     break_index = 0
+    
     while text_len - start > chunk_size:
         target = start + chunk_size
         max_end = min(text_len, start + 2 * chunk_size)
@@ -217,14 +218,26 @@ def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
         elif break_index < len(breaks) and breaks[break_index] <= max_end:
             end = breaks[break_index]
         else:
-            space = text.rfind(" ", start + 1, target)
-            end = space if space != -1 else target
+            # Fallback: look for space or newline as break point
+            # Search up to max_end for better break points
+            newline = text.rfind("\n", start + 1, max_end)
+            space = text.rfind(" ", start + 1, max_end)
+            
+            # Use whichever is closer to target
+            best_break = max(newline, space)
+            
+            if best_break != -1:
+                end = best_break + 1  # Include the newline/space in the chunk
+            else:
+                # No good break point found, force break at max_end
+                end = max_end
 
         chunks.append(Chunk(cstart=start, cend=end, text_bo=text[start:end]))
         start = end
 
     if start < text_len:
         chunks.append(Chunk(cstart=start, cend=text_len, text_bo=text[start:text_len]))
+    
     return chunks
 
 
@@ -331,9 +344,25 @@ def _import_parquet(
     # Fetch volume metadata from BDRC
     metadata = fetch_volume_metadata(i_id)
 
+    # Check if document already exists to preserve certain fields
+    doc_id = _volume_doc_id(w_id, i_id)
+    existing_doc = _get_document(doc_id)
+    
     # Assemble and index the volume document
     now = datetime.now(UTC).isoformat()
-    doc_id = _volume_doc_id(w_id, i_id)
+
+    # Preserve fields from existing document if it exists
+    if existing_doc:
+        first_imported_at = existing_doc.get("first_imported_at", now)
+        existing_segments = existing_doc.get("segments", [])
+        existing_status = existing_doc.get("status", VolumeStatus.NEW.value)
+        logger.info("Reimporting existing volume %s - preserving %d segments and status=%s", 
+                   doc_id, len(existing_segments), existing_status)
+    else:
+        first_imported_at = now
+        existing_segments = []
+        existing_status = VolumeStatus.NEW.value
+        logger.info("Creating new volume %s", doc_id)
 
     body = {
         "type": DocumentType.VOLUME_ETEXT.value,
@@ -341,26 +370,19 @@ def _import_parquet(
         "i_id": i_id,
         "i_version": i_version,
         "source": source,
-        "status": VolumeStatus.NEW.value,
+        "status": existing_status,
         "volume_number": metadata["volume_number"],
         "nb_pages": len(pages),
         "pages": [p.model_dump() for p in pages],
-        "segments": [],
+        "segments": existing_segments,
         "chunks": [c.model_dump() for c in chunks],
         "cstart": 0,
         "cend": len(full_text),
-        "text": full_text,
-        "first_imported_at": now,
+        "first_imported_at": first_imported_at,
         "last_updated_at": now,
         "join_field": {"name": "instance"},
     }
 
     _index_document(doc_id, body)
-    logger.info(
-        "Indexed volume %s: %d pages, %d chunks, %d characters",
-        doc_id,
-        len(pages),
-        len(chunks),
-        len(full_text),
-    )
+    
     return doc_id

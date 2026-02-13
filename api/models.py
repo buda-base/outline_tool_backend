@@ -111,7 +111,6 @@ class VolumeOutput(VolumeBase):
     replaced_by: str | None = None
     cstart: int | None = None
     cend: int | None = None
-    text: str | None = None
     chunks: list[Chunk] = Field(default_factory=list)
 
 

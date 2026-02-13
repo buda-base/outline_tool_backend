@@ -4,6 +4,8 @@ FastAPI application for OpenSearch volume data management.
 Provides REST API endpoints for volumes, works, persons, stats, and imports.
 """
 
+import logging
+import sys
 from typing import Any
 
 import orjson
@@ -18,6 +20,18 @@ from api.routers import persons as persons_router
 from api.routers import stats as stats_router
 from api.routers import volumes as volumes_router
 from api.routers import works as works_router
+
+# Configure logging for development
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+
+# Set specific loggers to INFO level
+logging.getLogger("api").setLevel(logging.INFO)
+logging.getLogger("api.services.ocr_import").setLevel(logging.INFO)
+logging.getLogger("api.routers.data_import").setLevel(logging.INFO)
 
 app = FastAPI(
     title="OpenSearch Volume API",

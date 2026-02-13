@@ -18,6 +18,7 @@ def _import_ocr_volume_task(
     source: str,
 ) -> None:
     """Background task that downloads a parquet from S3 and imports the OCR volume."""
+    logger.info("Starting import for %s/%s (version=%s, source=%s)", w_id, i_id, i_version, source)
     try:
         doc_id = import_ocr_from_s3(
             w_id=w_id,
@@ -25,14 +26,16 @@ def _import_ocr_volume_task(
             i_version=i_version,
             source=source,
         )
-        logger.info("Import completed: %s", doc_id)
+        logger.info("✓ Import completed successfully: %s", doc_id)
     except Exception:
-        logger.exception("Import failed for %s/%s", w_id, i_id)
+        logger.exception("✗ Import failed for %s/%s", w_id, i_id)
 
 
 @router.post("/ocr-volume")
 async def import_ocr_volume(body: ImportOCRRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
     """Queue an OCR volume import — downloads parquet from S3 and indexes it."""
+    logger.info("Queuing import request: %s/%s (version=%s, source=%s)", 
+               body.w_id, body.i_id, body.i_version, body.source)
     background_tasks.add_task(
         _import_ocr_volume_task,
         w_id=body.w_id,
