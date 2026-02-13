@@ -90,7 +90,7 @@ class WorkOutput(WorkBase):
 
 class VolumeBase(BaseModel):
     i_version: str | None = None
-    source: str | None = None
+    etext_source: str | None = None
     volume_number: int | None = None
     status: VolumeStatus = VolumeStatus.NEW
     pages: list[PageEntry] = Field(default_factory=list)
@@ -125,7 +125,7 @@ class ImportOCRRequest(BaseModel):
     w_id: str
     i_id: str
     i_version: str
-    source: str
+    etext_source: str
 
 
 class CatalogBreakdown(BaseModel):

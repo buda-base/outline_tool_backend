@@ -241,13 +241,13 @@ def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
     return chunks
 
 
-def _s3_key(w_id: str, i_id: str, i_version: str, source: str) -> str:
+def _s3_key(w_id: str, i_id: str, i_version: str, etext_source: str) -> str:
     """Build the S3 object key for an OCR parquet file."""
-    source_in_fname = source
-    if source == "ocrv1-ws-ldv1":
+    source_in_fname = etext_source
+    if etext_source == "ocrv1-ws-ldv1":
         source_in_fname = "ocrv1"
     filename = f"{w_id}-{i_id}-{i_version}_{source_in_fname}.parquet"
-    return f"{source}/{w_id}/{i_id}/{i_version}/{filename}"
+    return f"{etext_source}/{w_id}/{i_id}/{i_version}/{filename}"
 
 
 def _download_from_s3(s3_key: str) -> BytesIO:
@@ -264,23 +264,23 @@ def import_ocr_from_s3(
     w_id: str,
     i_id: str,
     i_version: str,
-    source: str,
+    etext_source: str,
 ) -> str:
     """
     Download a parquet OCR file from S3 and index the resulting volume into OpenSearch.
 
     Returns the document ID of the created volume.
     """
-    key = _s3_key(w_id, i_id, i_version, source)
+    key = _s3_key(w_id, i_id, i_version, etext_source)
     parquet_buffer = _download_from_s3(key)
-    return _import_parquet(w_id, i_id, i_version, source, parquet_buffer)
+    return _import_parquet(w_id, i_id, i_version, etext_source, parquet_buffer)
 
 
 def _import_parquet(
     w_id: str,
     i_id: str,
     i_version: str,
-    source: str,
+    etext_source: str,
     parquet_data: BytesIO,
 ) -> str:
     """
@@ -345,7 +345,7 @@ def _import_parquet(
     metadata = fetch_volume_metadata(i_id)
 
     # Check if document already exists to preserve certain fields
-    doc_id = _volume_doc_id(w_id, i_id)
+    doc_id = _volume_doc_id(w_id, i_id, i_version, etext_source)
     existing_doc = _get_document(doc_id)
     
     # Assemble and index the volume document
@@ -369,7 +369,7 @@ def _import_parquet(
         "w_id": w_id,
         "i_id": i_id,
         "i_version": i_version,
-        "source": source,
+        "etext_source": etext_source,
         "status": existing_status,
         "volume_number": metadata["volume_number"],
         "nb_pages": len(pages),

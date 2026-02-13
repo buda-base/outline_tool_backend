@@ -75,13 +75,13 @@ def _extract_hits(response: dict[str, Any]) -> list[dict[str, Any]]:
     return [{**hit["_source"], "id": hit["_id"]} for hit in response["hits"]["hits"]]
 
 
-def _volume_doc_id(w_id: str, i_id: str) -> str:
-    return f"{w_id}_{i_id}"
+def _volume_doc_id(w_id: str, i_id: str, i_version: str, etext_source: str) -> str:
+    return f"{w_id}_{i_id}_{i_version}_{etext_source}"
 
 
 def list_volumes(
     status: str | None = None,
-    source: str | None = None,
+    etext_source: str | None = None,
     w_id: str | None = None,
     offset: int = 0,
     limit: int = 50,
@@ -91,8 +91,8 @@ def list_volumes(
     ]
     if status is not None:
         filters.append({"term": {"status": status}})
-    if source is not None:
-        filters.append({"term": {"source": source}})
+    if etext_source is not None:
+        filters.append({"term": {"etext_source": etext_source}})
     if w_id is not None:
         filters.append({"term": {"w_id": w_id}})
 
@@ -109,16 +109,51 @@ def list_volumes(
 
 
 def get_volume(w_id: str, i_id: str) -> VolumeOutput | None:
-    doc_id = _volume_doc_id(w_id, i_id)
-    source = _get_document(doc_id)
-    if source is None:
+    """
+    Get the best matching volume for the given w_id and i_id.
+    
+    Selection logic:
+    1. Prefer documents with segments over those without
+    2. Within each group, prefer most recent (by last_updated_at)
+    """
+    # Search for all volumes matching w_id and i_id
+    filters: list[dict[str, Any]] = [
+        {"term": {"type": DocumentType.VOLUME_ETEXT.value}},
+        {"term": {"w_id": w_id}},
+        {"term": {"i_id": i_id}},
+    ]
+    
+    body: dict[str, Any] = {
+        "query": {"bool": {"filter": filters}},
+        "sort": [{"last_updated_at": {"order": "desc"}}],
+    }
+    
+    response = _search(body, size=100)  # Get up to 100 versions
+    hits = _extract_hits(response)
+    
+    if not hits:
         return None
-    return VolumeOutput.model_validate({**source, "id": doc_id, "w_id": w_id, "i_id": i_id})
+    
+    # Separate documents with and without segments
+    with_segments = [h for h in hits if h.get("segments") and len(h.get("segments", [])) > 0]
+    without_segments = [h for h in hits if not h.get("segments") or len(h.get("segments", [])) == 0]
+    
+    # Choose the best: prefer with segments, then most recent
+    if with_segments:
+        chosen = with_segments[0]  # Already sorted by last_updated_at desc
+    else:
+        chosen = without_segments[0] if without_segments else hits[0]
+    
+    return VolumeOutput.model_validate({**chosen, "id": chosen["id"], "w_id": w_id, "i_id": i_id})
 
 
 def create_volume(w_id: str, i_id: str, data: VolumeInput) -> VolumeOutput:
     """Create a new volume document."""
-    doc_id = _volume_doc_id(w_id, i_id)
+    # Require version and etext_source in the data
+    if not data.i_version or not data.etext_source:
+        raise ValueError("i_version and etext_source are required to create a volume")
+    
+    doc_id = _volume_doc_id(w_id, i_id, data.i_version, data.etext_source)
     now = datetime.now(UTC).isoformat()
     body = {
         **data.model_dump(),
@@ -134,8 +169,22 @@ def create_volume(w_id: str, i_id: str, data: VolumeInput) -> VolumeOutput:
 
 
 def update_volume(w_id: str, i_id: str, data: VolumeInput) -> dict[str, Any]:
-    """Partial update of an existing volume (only client-sent fields)."""
-    doc_id = _volume_doc_id(w_id, i_id)
+    """
+    Partial update of an existing volume (only client-sent fields).
+    Requires i_version and etext_source to identify the specific document to update.
+    """
+    # Validate that i_version and etext_source are provided
+    if not data.i_version or not data.etext_source:
+        raise ValueError("i_version and etext_source are required to update a volume")
+    
+    # Construct the specific doc_id
+    doc_id = _volume_doc_id(w_id, i_id, data.i_version, data.etext_source)
+    
+    # Check if document exists
+    existing = _get_document(doc_id)
+    if existing is None:
+        raise ValueError(f"Volume {w_id}/{i_id} (version={data.i_version}, etext_source={data.etext_source}) not found")
+    
     partial = data.model_dump(exclude_unset=True)
     partial["last_updated_at"] = datetime.now(UTC).isoformat()
     return _update_document(doc_id, partial)

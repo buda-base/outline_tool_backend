@@ -11,7 +11,7 @@ router = APIRouter(prefix="/volumes", tags=["volumes"])
 @router.get("")
 async def get_available_volumes(
     volume_status: Annotated[VolumeStatus | None, Query(alias="status")] = None,
-    source: Annotated[str | None, Query()] = None,
+    etext_source: Annotated[str | None, Query()] = None,
     w_id: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -19,7 +19,7 @@ async def get_available_volumes(
     """List volumes available for annotation, with optional filters and pagination."""
     items, total = list_volumes(
         status=volume_status.value if volume_status else None,
-        source=source,
+        etext_source=etext_source,
         w_id=w_id,
         offset=offset,
         limit=limit,
