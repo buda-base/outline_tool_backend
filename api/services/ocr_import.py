@@ -193,13 +193,12 @@ def _import_parquet(
         cstart = offset
         cend = offset + len(page_text)
 
-        pname = fname.rsplit(".", 1)[0]  # strip file extension
         pages.append(
             PageEntry(
                 cstart=cstart,
                 cend=cend,
                 pnum=pnum,
-                pname=pname,
+                pname=fname,
             )
         )
 
