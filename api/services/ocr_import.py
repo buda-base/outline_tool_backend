@@ -1,6 +1,7 @@
 """Import OCR results from parquet files stored in S3 into OpenSearch volumes."""
 
 import logging
+import re
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,31 +17,40 @@ logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 1000
 
+_TIB_CHUNK_PATTERN = re.compile(r"([སའངགདནབམརལཏ]ོ[་༌]?[།-༔][^ཀ-ཬ]*|(།།|[༎-༒])[^ཀ-ཬ༠-༩]*[།-༔][^ཀ-ཬ༠-༩]*)")
+
 
 def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
-    """Split text into chunks of approximately chunk_size characters, breaking at newlines."""
+    """Split text into chunks of ~chunk_size chars, breaking at Tibetan sentence endings."""
+    text_len = len(text)
+    if text_len <= chunk_size:
+        return [Chunk(cstart=0, cend=text_len, text_bo=text)] if text else []
+
+    breaks = [m.end() for m in _TIB_CHUNK_PATTERN.finditer(text)]
+
     chunks: list[Chunk] = []
     start = 0
-    text_len = len(text)
+    break_index = 0
+    while text_len - start > chunk_size:
+        target = start + chunk_size
+        max_end = min(text_len, start + 2 * chunk_size)
 
-    while start < text_len:
-        end = min(start + chunk_size, text_len)
+        while break_index < len(breaks) and breaks[break_index] < target:
+            break_index += 1
 
-        # Try to break at a newline boundary if not at the very end
-        if end < text_len:
-            newline_pos = text.rfind("\n", start, end)
-            if newline_pos > start:
-                end = newline_pos + 1
+        if break_index > 0 and breaks[break_index - 1] > start:
+            end = breaks[break_index - 1]
+        elif break_index < len(breaks) and breaks[break_index] <= max_end:
+            end = breaks[break_index]
+        else:
+            space = text.rfind(" ", start + 1, target)
+            end = space if space != -1 else target
 
-        chunks.append(
-            Chunk(
-                cstart=start,
-                cend=end,
-                text_bo=text[start:end],
-            )
-        )
+        chunks.append(Chunk(cstart=start, cend=end, text_bo=text[start:end]))
         start = end
 
+    if start < text_len:
+        chunks.append(Chunk(cstart=start, cend=text_len, text_bo=text[start:text_len]))
     return chunks
 
 
