@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.models import PaginatedResponse, VolumeInput, VolumeOutput, VolumeStatus
-from api.services.opensearch import get_volume, list_volumes, update_volume
+from api.services.volumes import get_volume, list_volumes, update_volume
 
 router = APIRouter(prefix="/volumes", tags=["volumes"])
 
@@ -40,7 +40,6 @@ async def get_volume_data(w_id: str, i_id: str) -> VolumeOutput:
 
 
 @router.put("/{w_id}/{i_id}")
-async def put_volume_data(w_id: str, i_id: str, body: VolumeInput) -> dict[str, str]:
+async def put_volume_data(w_id: str, i_id: str, body: VolumeInput) -> VolumeOutput:
     """Update an existing volume (only the provided fields)."""
-    update_volume(w_id, i_id, body)
-    return {"id": f"{w_id}_{i_id}"}
+    return update_volume(w_id, i_id, body)

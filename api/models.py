@@ -27,6 +27,17 @@ class DocumentType(StrEnum):
     PERSON = "person"
 
 
+class RecordStatus(StrEnum):
+    ACTIVE = "active"
+    DUPLICATE = "duplicate"
+    WITHDRAWN = "withdrawn"
+
+
+class Origin(StrEnum):
+    IMPORTED = "imported"
+    LOCAL = "local"
+
+
 _ID_ALPHABET = string.ascii_uppercase + string.digits
 
 
@@ -59,6 +70,32 @@ class Segment(BaseModel):
     author_name_bo: str | None = None
 
 
+class CurationMeta(BaseModel):
+    modified: bool = False
+    modified_at: datetime | None = None
+    modified_by: str | None = None
+    edit_version: int = 0
+
+
+class SourceMeta(BaseModel):
+    updated_at: datetime | None = None
+
+
+class ImportMeta(BaseModel):
+    last_run_at: datetime | None = None
+    last_result: str | None = None
+
+
+class RecordOutput(BaseModel):
+    id: str
+    origin: Origin | None = None
+    record_status: RecordStatus | None = None
+    canonical_id: str | None = None
+    curation: CurationMeta | None = None
+    source_meta: SourceMeta | None = None
+    import_meta: ImportMeta | None = None
+
+
 class PersonBase(BaseModel):
     pref_label_bo: str | None = None
     alt_label_bo: str | None = None
@@ -66,11 +103,11 @@ class PersonBase(BaseModel):
 
 
 class PersonInput(PersonBase):
+    modified_by: str
+
+
+class PersonOutput(PersonBase, RecordOutput):
     pass
-
-
-class PersonOutput(PersonBase):
-    id: str
 
 
 class WorkBase(BaseModel):
@@ -81,11 +118,16 @@ class WorkBase(BaseModel):
 
 
 class WorkInput(WorkBase):
+    modified_by: str
+
+
+class WorkOutput(WorkBase, RecordOutput):
     pass
 
 
-class WorkOutput(WorkBase):
-    id: str
+class MergeRequest(BaseModel):
+    canonical_id: str
+    modified_by: str
 
 
 class VolumeBase(BaseModel):

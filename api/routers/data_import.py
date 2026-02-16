@@ -55,9 +55,15 @@ async def import_ocr_volume(body: ImportOCRRequest, background_tasks: Background
 
 
 @router.post("/sync-catalog")
-async def sync_catalog() -> dict[str, Any]:
-    """Import persons and works from the BDRC catalog."""
+async def sync_catalog(background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Import persons and works from the BDRC catalog (incremental)."""
     # TODO: implement BDRC catalog sync
+    # Skeleton:
+    #   1. Read watermark checkpoint from ES (last_updated_at per type)
+    #   2. Fetch changed records from BDRC API since watermark
+    #   3. Call bulk_upsert_from_import(records) — respects curation guard
+    #   4. Update watermark
+    #   5. Log import events to audit index
     return {
         "status": "not_implemented",
         "message": "Catalog sync is not yet implemented",

@@ -8,12 +8,14 @@ import logging
 import sys
 from typing import Any
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
 from opensearchpy.exceptions import TransportError
 
 from api.config import index_name, opensearch_client
+from api.exceptions import ConflictError, NotFoundError
+from api.routers import audit as audit_router
 from api.routers import data_import as import_router
 from api.routers import persons as persons_router
 from api.routers import stats as stats_router
@@ -54,6 +56,23 @@ app.include_router(works_router.router)
 app.include_router(persons_router.router)
 app.include_router(stats_router.router)
 app.include_router(import_router.router)
+app.include_router(audit_router.router)
+
+
+@app.exception_handler(NotFoundError)
+async def handle_not_found(_request: Request, exc: NotFoundError) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": str(exc)},
+    )
+
+
+@app.exception_handler(ConflictError)
+async def handle_conflict(_request: Request, exc: ConflictError) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"detail": str(exc)},
+    )
 
 
 @app.get("/health", response_model=None)

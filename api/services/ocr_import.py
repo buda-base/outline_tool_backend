@@ -16,7 +16,8 @@ from rdflib import Graph, Namespace
 
 from api.config import Config
 from api.models import Chunk, DocumentType, PageEntry, VolumeStatus
-from api.services.opensearch import _get_document, _index_document, _volume_doc_id
+from api.services.os_client import get_document, index_document
+from api.services.volumes import _volume_doc_id
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +344,7 @@ def _import_parquet(
 
     # Check if document already exists to preserve certain fields
     doc_id = _volume_doc_id(w_id, i_id, i_version, etext_source)
-    existing_doc = _get_document(doc_id)
+    existing_doc = get_document(doc_id)
 
     # Assemble and index the volume document
     now = datetime.now(UTC).isoformat()
@@ -384,6 +385,6 @@ def _import_parquet(
         "join_field": {"name": "instance"},
     }
 
-    _index_document(doc_id, body)
+    index_document(doc_id, body)
 
     return doc_id

@@ -2,8 +2,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from api.models import WorkInput, WorkOutput
-from api.services.opensearch import create_work, get_work, search_works, update_work
+from api.exceptions import NotFoundError
+from api.models import MergeRequest, WorkInput, WorkOutput
+from api.services.records import create_work, get_work, merge_work, search_works, update_work
 
 router = APIRouter(prefix="/works", tags=["works"])
 
@@ -27,10 +28,7 @@ async def get_work_data(work_id: str) -> WorkOutput:
     """Get work data by ID."""
     work = get_work(work_id)
     if work is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Work '{work_id}' not found",
-        )
+        raise NotFoundError("Work", work_id)
     return work
 
 
@@ -42,7 +40,12 @@ async def post_work_data(body: WorkInput) -> dict[str, str]:
 
 
 @router.put("/{work_id}")
-async def put_work_data(work_id: str, body: WorkInput) -> dict[str, str]:
+async def put_work_data(work_id: str, body: WorkInput) -> WorkOutput:
     """Update an existing work (only the provided fields)."""
-    update_work(work_id, body)
-    return {"id": work_id}
+    return update_work(work_id, body)
+
+
+@router.post("/{work_id}/merge")
+async def merge_work_data(work_id: str, body: MergeRequest) -> WorkOutput:
+    """Mark a work as duplicate of the canonical work."""
+    return merge_work(work_id, body.canonical_id, body.modified_by)

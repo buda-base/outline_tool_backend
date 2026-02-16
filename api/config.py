@@ -42,7 +42,6 @@ class Config:
     OPENSEARCH_VERIFY_CERTS: bool = os.getenv("OPENSEARCH_VERIFY_CERTS", "true").lower() == "true"
     OPENSEARCH_USER: str | None = os.getenv("OPENSEARCH_USER")
     OPENSEARCH_PASSWORD: str | None = os.getenv("OPENSEARCH_PASSWORD")
-
     S3_OCR_BUCKET: str = os.getenv("S3_OCR_BUCKET", "bec.bdrc.io")
 
     API_HOST: str = os.getenv("API_HOST", "127.0.0.1")
