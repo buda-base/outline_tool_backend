@@ -51,7 +51,8 @@ Don't import records where `updated_at <= checkpoint`.
 ```json
 POST /bec/_doc/work_import_record
 {
-  "last_updated_at": "..."
+  "last_updated_at": "...",
+  "last_revision_imported": "..."
 }
 ```
 
