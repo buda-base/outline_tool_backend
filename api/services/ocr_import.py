@@ -374,11 +374,11 @@ def _import_parquet(
         )
 
         full_text_parts.append(page_text)
-        offset = cend + 1  # +1 for the page separator newline
+        offset = cend + 2  # +2 for the double page separator newline
         pages_processed += 1
 
     logger.info("Processed %d pages (skipped %d intro pages)", pages_processed, intro_pages)
-    full_text = "\n".join(full_text_parts)
+    full_text = "\n\n".join(full_text_parts)
 
     # Build search chunks
     chunks = _build_chunks(full_text)
