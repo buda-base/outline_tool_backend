@@ -46,6 +46,32 @@ def generate_id(prefix: str, length: int = 7) -> str:
     return f"{prefix}{suffix}"
 
 
+class ParsedRecord(BaseModel):
+    id: str
+    type: str
+    is_released: bool
+    replacement_id: str | None = None
+    pref_label_bo: str | None = None
+    alt_label_bo: list[str] = Field(default_factory=list)
+    author: str | None = None
+
+
+class ImportRecord(BaseModel):
+    id: str
+    type: str
+    pref_label_bo: str | None = None
+    alt_label_bo: list[str] = Field(default_factory=list)
+    author: str | None = None
+    db_score: float | None = None
+
+
+class SyncCounts(BaseModel):
+    upserted: int = 0
+    merged: int = 0
+    withdrawn: int = 0
+    skipped: int = 0
+
+
 class Chunk(BaseModel):
     cstart: int
     cend: int
@@ -94,6 +120,7 @@ class RecordOutput(BaseModel):
     curation: CurationMeta | None = None
     source_meta: SourceMeta | None = None
     import_meta: ImportMeta | None = None
+    db_score: float | None = None
 
 
 class PersonBase(BaseModel):

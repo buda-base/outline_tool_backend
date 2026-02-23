@@ -54,10 +54,10 @@ SLOP_MAX_VALUE = 5
 
 # Top-level text fields on instance documents
 TOP_LEVEL_FIELDS = {
-    "prefLabel_bo": 1.0,
-    "prefLabel_bo.tibetan-phonetic": 0.90,
-    "altLabel_bo": 0.95,
-    "altLabel_bo.tibetan-phonetic": 0.85,
+    "pref_label_bo": 1.0,
+    "pref_label_bo.tibetan-phonetic": 0.90,
+    "alt_label_bo": 0.95,
+    "alt_label_bo.tibetan-phonetic": 0.85,
 }
 
 # Nested segment text fields (inside "segments" nested object)

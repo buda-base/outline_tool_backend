@@ -1,10 +1,12 @@
 import logging
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Query
 
 from api.models import ImportOCRRequest
 from api.services.ocr_import import import_ocr_from_s3
+from scripts.entity_scores import load_entity_scores
+from scripts.sync_bdrc import sync_repo
 
 logger = logging.getLogger(__name__)
 
@@ -54,17 +56,32 @@ async def import_ocr_volume(body: ImportOCRRequest, background_tasks: Background
     }
 
 
+def _sync_catalog_task(*, force: bool = False) -> None:
+    """Background task that syncs works and persons from BDRC git repos."""
+    logger.info("Starting catalog sync (force=%s)", force)
+    try:
+        entity_scores = load_entity_scores()
+
+        for record_type in ("work", "person"):
+            logger.info("Syncing %s records...", record_type)
+            counts = sync_repo(record_type, entity_scores, force=force)
+            logger.info("Sync %s result: %s", record_type, counts)
+
+        logger.info("Catalog sync completed successfully")
+    except Exception:
+        logger.exception("Catalog sync failed")
+
+
 @router.post("/sync-catalog")
-async def sync_catalog(background_tasks: BackgroundTasks) -> dict[str, Any]:
+async def sync_catalog(
+    background_tasks: BackgroundTasks,
+    *,
+    force: Annotated[bool, Query(description="Force full reimport")] = False,
+) -> dict[str, Any]:
     """Import persons and works from the BDRC catalog (incremental)."""
-    # TODO: implement BDRC catalog sync
-    # Skeleton:
-    #   1. Read watermark checkpoint from ES (last_updated_at per type)
-    #   2. Fetch changed records from BDRC API since watermark
-    #   3. Call bulk_upsert_from_import(records) — respects curation guard
-    #   4. Update watermark
-    #   5. Log import events to audit index
+    background_tasks.add_task(_sync_catalog_task, force=force)
     return {
-        "status": "not_implemented",
-        "message": "Catalog sync is not yet implemented",
+        "status": "accepted",
+        "message": "Catalog sync queued",
+        "force": force,
     }

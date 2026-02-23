@@ -56,5 +56,13 @@ def search(
     return opensearch_client.search(**kwargs)
 
 
+def bulk_operation(body: list[dict[str, Any]], *, refresh: bool = False) -> dict[str, Any]:
+    return opensearch_client.bulk(body=body, index=index_name, refresh=refresh)
+
+
+def refresh_index() -> None:
+    opensearch_client.indices.refresh(index=index_name)
+
+
 def extract_hits(response: dict[str, Any]) -> list[dict[str, Any]]:
     return [{**hit["_source"], "id": hit["_id"]} for hit in response["hits"]["hits"]]

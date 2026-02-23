@@ -31,10 +31,9 @@ def _build_curation(modified_by: str, edit_version: int = 1) -> dict[str, Any]:
 def _create_record(
     data: WorkInput | PersonInput,
     doc_type: DocumentType,
-    prefix: str,
+    doc_id: str,
 ) -> dict[str, Any]:
     """Create a new local record. Returns the full body dict with 'id' key."""
-    doc_id = generate_id(prefix)
     body = {
         **data.model_dump(exclude={"modified_by"}),
         "type": doc_type.value,
@@ -113,7 +112,8 @@ def _get_record(doc_id: str) -> dict[str, Any] | None:
 
 def create_work(data: WorkInput) -> WorkOutput:
     """Create a new local work record with a generated ID."""
-    return WorkOutput.model_validate(_create_record(data, DocumentType.WORK, "W"))
+    work_id = generate_id(prefix="W")
+    return WorkOutput.model_validate(_create_record(data, DocumentType.WORK, work_id))
 
 
 def update_work(work_id: str, data: WorkInput) -> WorkOutput:
@@ -160,7 +160,8 @@ def merge_work(work_id: str, canonical_id: str, modified_by: str) -> WorkOutput:
 
 def create_person(data: PersonInput) -> PersonOutput:
     """Create a new local person record with a generated ID."""
-    return PersonOutput.model_validate(_create_record(data, DocumentType.PERSON, "P"))
+    person_id = generate_id(prefix="P")
+    return PersonOutput.model_validate(_create_record(data, DocumentType.PERSON, person_id))
 
 
 def update_person(person_id: str, data: PersonInput) -> PersonOutput:
