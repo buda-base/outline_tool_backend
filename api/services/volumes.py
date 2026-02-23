@@ -133,6 +133,34 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
                     f"Segment mw_id '{segment.mw_id}' must start with parent mw_id '{parent_mw_id}_'"
                 )
     
+    # Validate base_text matches concatenation of chunks
+    chunks = existing.get("chunks", [])
+    if chunks:
+        reconstructed_text = "".join(chunk.get("text_bo", "") for chunk in chunks)
+        if data.base_text != reconstructed_text:
+            raise ValueError(
+                "base_text must exactly match the concatenation of chunks from the document. "
+                f"Expected length: {len(reconstructed_text)}, received: {len(data.base_text)}"
+            )
+    
+    # Validate segment boundaries
+    if data.segments:
+        # Sort segments by cstart to validate properly
+        sorted_segments = sorted(data.segments, key=lambda s: s.cstart)
+        
+        # First segment must start at 0
+        if sorted_segments[0].cstart != 0:
+            raise ValueError(f"First segment must start at cstart=0, but starts at {sorted_segments[0].cstart}")
+        
+        # Last segment must end at document's cend
+        doc_cend = existing.get("cend")
+        if doc_cend is not None:
+            if sorted_segments[-1].cend != doc_cend:
+                raise ValueError(
+                    f"Last segment must end at document's cend={doc_cend}, "
+                    f"but ends at {sorted_segments[-1].cend}"
+                )
+    
     # Convert AnnotatedSegment to internal Segment format
     segments = []
     for seg in data.segments:
