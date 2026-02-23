@@ -45,7 +45,6 @@
             "pop_score": { "type": "half_float" },
             "pop_score_in_type": { "type": "half_float" },
             "type": { "type": "keyword" },
-            "partType": { "type": "keyword" },
             "author": { "type": "keyword" },
             "cstart": { "type": "integer" },
             "cend": { "type": "integer" },
@@ -114,6 +113,7 @@
                     "idx": { "type": "integer" },
                     "cstart": { "type": "integer" },
                     "cend": { "type": "integer" },
+                    "part_type": { "type": "keyword" },
                     "title_bo": {
                         "type": "text",
                         "analyzer": "tibetan-lenient",

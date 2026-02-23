@@ -2,8 +2,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from api.models import PaginatedResponse, VolumeInput, VolumeOutput, VolumeStatus
-from api.services.volumes import get_volume, list_volumes, update_volume
+from api.models import PaginatedResponse, VolumeAnnotationInput, VolumeInput, VolumeOutput, VolumeStatus
+from api.services.volumes import get_volume, list_volumes, save_annotated_volume, update_volume
 
 router = APIRouter(prefix="/volumes", tags=["volumes"])
 
@@ -43,3 +43,25 @@ async def get_volume_data(rep_id: str, vol_id: str) -> VolumeOutput:
 async def put_volume_data(rep_id: str, vol_id: str, body: VolumeInput) -> VolumeOutput:
     """Update an existing volume (only the provided fields)."""
     return update_volume(rep_id, vol_id, body)
+
+
+@router.post("/{volume_id}")
+async def save_annotated_volume_data(volume_id: str, body: VolumeAnnotationInput) -> dict[str, str]:
+    """
+    Save annotated volume from frontend.
+    
+    The volume_id should be the internal OpenSearch ID (e.g., W00CHZ0103341_I1CZ35_822f2e_ocrv1-ws-ldv1).
+    """
+    try:
+        result = save_annotated_volume(volume_id, body)
+        return {"status": "success", "id": result}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save annotated volume: {str(e)}",
+        )

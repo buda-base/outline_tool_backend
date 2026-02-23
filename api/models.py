@@ -5,7 +5,7 @@ import string
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class VolumeStatus(StrEnum):
@@ -17,7 +17,6 @@ class VolumeStatus(StrEnum):
 
 class SegmentType(StrEnum):
     TEXT = "text"
-    MAIN_TEXT = "main_text"
     EDITORIAL = "editorial"
 
 
@@ -94,6 +93,35 @@ class Segment(BaseModel):
     parent_segment: str | None = None
     title_bo: str | None = None
     author_name_bo: str | None = None
+
+
+class AnnotatedSegment(BaseModel):
+    """Segment with full annotation data from frontend."""
+    cstart: int
+    cend: int
+    title_bo: str | list[str]  # Mandatory, can be string or list
+    author_name_bo: str | list[str] | None = None  # Optional, can be string or list
+    mw_id: str  # Must start with '{parent_mw_id}_'
+    wa_id: str | None = None  # Mandatory for part_type='text'
+    part_type: SegmentType  # 'text' or 'editorial'
+
+    @field_validator("mw_id")
+    @classmethod
+    def validate_mw_id_format(cls, v: str) -> str:
+        """Validate that mw_id contains an underscore and has proper format."""
+        if "_" not in v:
+            raise ValueError("mw_id must contain an underscore (format: {parent_mw_id}_{segment_id})")
+        prefix = v.split("_")[0]
+        if not prefix or not prefix[0].isupper():
+            raise ValueError("mw_id must start with a valid ID prefix (e.g., MW123_456)")
+        return v
+
+    @model_validator(mode="after")
+    def validate_wa_id_for_text(self) -> "AnnotatedSegment":
+        """Validate that wa_id is present when part_type is 'text'."""
+        if self.part_type == SegmentType.TEXT and not self.wa_id:
+            raise ValueError("wa_id is mandatory when part_type is 'text'")
+        return self
 
 
 class CurationMeta(BaseModel):
@@ -197,6 +225,34 @@ class ImportOCRRequest(BaseModel):
     vol_id: str
     vol_version: str
     etext_source: str
+
+
+class VolumeAnnotationInput(BaseModel):
+    """Input model for annotated volume from frontend."""
+    rep_id: str
+    record_status: RecordStatus
+    vol_id: str
+    vol_version: str
+    base_text: str  # The base text (not chunked)
+    segments: list[AnnotatedSegment]
+
+    @field_validator("segments")
+    @classmethod
+    def validate_segments_non_empty(cls, v: list[AnnotatedSegment]) -> list[AnnotatedSegment]:
+        """Validate that segments list is not empty."""
+        if not v:
+            raise ValueError("segments list cannot be empty")
+        return v
+
+    @field_validator("segments")
+    @classmethod
+    def validate_mw_ids_unique(cls, v: list[AnnotatedSegment]) -> list[AnnotatedSegment]:
+        """Validate that all mw_ids are unique."""
+        mw_ids = [seg.mw_id for seg in v]
+        if len(mw_ids) != len(set(mw_ids)):
+            duplicates = [mw_id for mw_id in mw_ids if mw_ids.count(mw_id) > 1]
+            raise ValueError(f"mw_id values must be unique. Duplicates found: {set(duplicates)}")
+        return v
 
 
 class CatalogBreakdown(BaseModel):
