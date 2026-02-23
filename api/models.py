@@ -158,9 +158,11 @@ class MergeRequest(BaseModel):
 
 
 class VolumeBase(BaseModel):
-    i_version: str | None = None
+    vol_version: str | None = None
     etext_source: str | None = None
     volume_number: int | None = None
+    wa_id: str | None = None
+    mw_id: str | None = None
     status: VolumeStatus = VolumeStatus.NEW
     pages: list[PageEntry] = Field(default_factory=list)
     segments: list[Segment] = Field(default_factory=list)
@@ -172,8 +174,8 @@ class VolumeInput(VolumeBase):
 
 class VolumeOutput(VolumeBase):
     id: str
-    w_id: str
-    i_id: str
+    rep_id: str
+    vol_id: str
     nb_pages: int | None = None
     first_imported_at: datetime | None = None
     last_updated_at: datetime | None = None
@@ -191,9 +193,9 @@ class PaginatedResponse(BaseModel):
 
 
 class ImportOCRRequest(BaseModel):
-    w_id: str
-    i_id: str
-    i_version: str
+    rep_id: str
+    vol_id: str
+    vol_version: str
     etext_source: str
 
 

@@ -14,23 +14,23 @@ router = APIRouter(prefix="/import", tags=["import"])
 
 
 def _import_ocr_volume_task(
-    w_id: str,
-    i_id: str,
-    i_version: str,
+    rep_id: str,
+    vol_id: str,
+    vol_version: str,
     etext_source: str,
 ) -> None:
     """Background task that downloads a parquet from S3 and imports the OCR volume."""
-    logger.info("Starting import for %s/%s (version=%s, etext_source=%s)", w_id, i_id, i_version, etext_source)
+    logger.info("Starting import for %s/%s (version=%s, etext_source=%s)", rep_id, vol_id, vol_version, etext_source)
     try:
         doc_id = import_ocr_from_s3(
-            w_id=w_id,
-            i_id=i_id,
-            i_version=i_version,
+            rep_id=rep_id,
+            vol_id=vol_id,
+            vol_version=vol_version,
             etext_source=etext_source,
         )
         logger.info("✓ Import completed successfully: %s", doc_id)
     except Exception:
-        logger.exception("✗ Import failed for %s/%s", w_id, i_id)
+        logger.exception("✗ Import failed for %s/%s", rep_id, vol_id)
 
 
 @router.post("/ocr-volume")
@@ -38,21 +38,21 @@ async def import_ocr_volume(body: ImportOCRRequest, background_tasks: Background
     """Queue an OCR volume import — downloads parquet from S3 and indexes it."""
     logger.info(
         "Queuing import request: %s/%s (version=%s, etext_source=%s)",
-        body.w_id,
-        body.i_id,
-        body.i_version,
+        body.rep_id,
+        body.vol_id,
+        body.vol_version,
         body.etext_source,
     )
     background_tasks.add_task(
         _import_ocr_volume_task,
-        w_id=body.w_id,
-        i_id=body.i_id,
-        i_version=body.i_version,
+        rep_id=body.rep_id,
+        vol_id=body.vol_id,
+        vol_version=body.vol_version,
         etext_source=body.etext_source,
     )
     return {
         "status": "accepted",
-        "message": f"Import queued for {body.w_id}/{body.i_id}",
+        "message": f"Import queued for {body.rep_id}/{body.vol_id}",
     }
 
 

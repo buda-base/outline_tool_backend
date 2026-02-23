@@ -22,17 +22,18 @@ from api.services.volumes import _volume_doc_id
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 1000
-BDRC_RESOURCE_URL = "https://purl.bdrc.io/resource/"
+BDRC_SPARQL_URL = "https://ldspdi.bdrc.io/query/graph/BEC_volInfo"
 S3_ARCHIVE_BUCKET = "archive.tbrc.org"
 
 # Define RDF namespaces
 BDO = Namespace("http://purl.bdrc.io/ontology/core/")
 BDR = Namespace("http://purl.bdrc.io/resource/")
+TMP = Namespace("http://purl.bdrc.io/ontology/tmp/")
 
 _TIB_CHUNK_PATTERN = re.compile(r"([སའངགདནབམརལཏ]ོ[་༌]?[།-༔][^ཀ-ཬ]*|(།།|[༎-༒])[^ཀ-ཬ༠-༩]*[།-༔][^ཀ-ཬ༠-༩]*)")
 
 
-def get_s3_folder_prefix(w_id: str, i_id: str) -> str:
+def get_s3_folder_prefix(rep_id: str, vol_id: str) -> str:
     """
     Get the S3 prefix (~folder) in which the volume will be present.
 
@@ -40,7 +41,7 @@ def get_s3_folder_prefix(w_id: str, i_id: str) -> str:
     io/bdrc/iiif/presentation/ImageInfoListService.java#L73
 
     Example:
-       - w_id=W22084, i_id=I0886
+       - rep_id=W22084, vol_id=I0886
        - result = "Works/60/W22084/images/W22084-0886/"
     where:
        - 60 is the first two characters of the md5 of the string W22084
@@ -48,13 +49,13 @@ def get_s3_folder_prefix(w_id: str, i_id: str) -> str:
           * the image group ID without the initial "I" if the image group ID is in the form I\\d\\d\\d\\d
           * or else the full image group ID (including the "I")
     """
-    md5 = hashlib.md5(w_id.encode())  # noqa: S324
+    md5 = hashlib.md5(rep_id.encode())  # noqa: S324
     two = md5.hexdigest()[:2]
 
-    pre, rest = i_id[0], i_id[1:]
-    suffix = rest if pre == "I" and rest.isdigit() and len(rest) == 4 else i_id
+    pre, rest = vol_id[0], vol_id[1:]
+    suffix = rest if pre == "I" and rest.isdigit() and len(rest) == 4 else vol_id
 
-    return f"Works/{two}/{w_id}/images/{w_id}-{suffix}/"
+    return f"Works/{two}/{rep_id}/images/{rep_id}-{suffix}/"
 
 
 def get_s3_blob(s3_key: str) -> BytesIO | None:
@@ -71,7 +72,7 @@ def get_s3_blob(s3_key: str) -> BytesIO | None:
         return buffer
 
 
-def get_image_list_s3(w_id: str, i_id: str) -> list[dict[str, str | int]] | None:
+def get_image_list_s3(rep_id: str, vol_id: str) -> list[dict[str, str | int]] | None:
     """
     Get the image list from S3. The format is:
     [
@@ -81,11 +82,11 @@ def get_image_list_s3(w_id: str, i_id: str) -> list[dict[str, str | int]] | None
          "height": 1731
       }
     ]
-
+    
     Excludes entries where filename ends with .json or where width/height is absent or null.
     Page number of filename X is the index of the entry in the list that has filename = X, starting at 1.
     """
-    s3_key = get_s3_folder_prefix(w_id, i_id) + "dimensions.json"
+    s3_key = get_s3_folder_prefix(rep_id, vol_id) + "dimensions.json"
     logger.info("Fetching dimensions from s3://%s/%s", S3_ARCHIVE_BUCKET, s3_key)
 
     blob = get_s3_blob(s3_key)
@@ -118,13 +119,13 @@ def get_image_list_s3(w_id: str, i_id: str) -> list[dict[str, str | int]] | None
         return filtered_data
 
 
-def build_filename_to_pnum_map(w_id: str, i_id: str) -> dict[str, int]:
+def build_filename_to_pnum_map(rep_id: str, vol_id: str) -> dict[str, int]:
     """
     Build a mapping from filename to page number based on dimensions.json.
-
+    
     Returns empty dict if dimensions.json cannot be fetched or parsed.
     """
-    image_list = get_image_list_s3(w_id, i_id)
+    image_list = get_image_list_s3(rep_id, vol_id)
     if image_list is None:
         return {}
 
@@ -137,35 +138,39 @@ def build_filename_to_pnum_map(w_id: str, i_id: str) -> dict[str, int]:
     return filename_to_pnum
 
 
-def fetch_volume_metadata(i_id: str) -> dict[str, int | str | None]:
+def fetch_volume_metadata(vol_id: str) -> dict[str, int | str | None]:
     """
-    Fetch volume metadata from BDRC TTL resource.
-
+    Fetch volume metadata from BDRC SPARQL endpoint.
+    
     Args:
-        i_id: Image instance ID (e.g., "I1CZ35")
+        vol_id: Volume ID (e.g., "I0886")
 
     Returns:
-        Dict with volume metadata including volume_number
+        Dict with volume metadata including volume_number, wa_id, mw_id
     """
-    url = f"{BDRC_RESOURCE_URL}{i_id}.ttl"
-
+    url = f"{BDRC_SPARQL_URL}?R_RES=bdr:{vol_id}"
+    
     try:
         logger.info("Fetching volume metadata from %s", url)
-        response = requests.get(url, timeout=10)
+        # Request TTL format via Accept header
+        headers = {"Accept": "text/turtle"}
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
-
+        
         # Parse TTL content
         graph = Graph()
         graph.parse(data=response.text, format="turtle")
-
+        
         # Build the subject URI for this resource
-        subject = BDR[i_id]
+        subject = BDR[vol_id]
 
         # Extract metadata
         metadata: dict[str, int | str | None] = {
             "volume_number": None,
             "volume_pages_tbrc_intro": None,
             "volume_pages_total": None,
+            "wa_id": None,
+            "mw_id": None,
         }
 
         # Get volume number
@@ -173,24 +178,48 @@ def fetch_volume_metadata(i_id: str) -> dict[str, int | str | None]:
             metadata["volume_number"] = int(vol_num)
             break
 
-        # Get bibliographic note (optional)
-        for _, _, note in graph.triples((subject, BDO.volumePagesTbrcIntro, None)):
-            metadata["volume_pages_tbrc_intro"] = int(note)
+        # Get TBRC intro pages (optional)
+        for _, _, intro_pages in graph.triples((subject, BDO.volumePagesTbrcIntro, None)):
+            metadata["volume_pages_tbrc_intro"] = int(intro_pages)
             break
 
         # Get total pages (optional)
-        for _, _, pages in graph.triples((subject, BDO.volumePagesTotal, None)):
-            metadata["volume_pages_total"] = int(pages)
+        for _, _, total_pages in graph.triples((subject, BDO.volumePagesTotal, None)):
+            metadata["volume_pages_total"] = int(total_pages)
             break
 
-        logger.info("Fetched metadata for %s: %s", i_id, metadata)
+        # Get wa_id (Work Analytic ID)
+        for _, _, wa_id_uri in graph.triples((subject, TMP.wa_id, None)):
+            # Extract the ID from the URI (e.g., http://purl.bdrc.io/resource/WA0BC001 -> WA0BC001)
+            metadata["wa_id"] = str(wa_id_uri).split("/")[-1]
+            break
+
+        # Get mw_id (Master Work ID)
+        for _, _, mw_id_uri in graph.triples((subject, TMP.mw_id, None)):
+            # Extract the ID from the URI (e.g., http://purl.bdrc.io/resource/MW22084 -> MW22084)
+            metadata["mw_id"] = str(mw_id_uri).split("/")[-1]
+            break
+
+        logger.info("Fetched metadata for %s: %s", vol_id, metadata)
 
     except requests.RequestException as e:
         logger.warning("Failed to fetch volume metadata from %s: %s", url, e)
-        return {"volume_number": None, "volume_pages_tbrc_intro": None, "volume_pages_total": None}
+        return {
+            "volume_number": None,
+            "volume_pages_tbrc_intro": None,
+            "volume_pages_total": None,
+            "wa_id": None,
+            "mw_id": None,
+        }
     except Exception:
-        logger.exception("Error parsing volume metadata for %s", i_id)
-        return {"volume_number": None, "volume_pages_tbrc_intro": None, "volume_pages_total": None}
+        logger.exception("Error parsing volume metadata for %s", vol_id)
+        return {
+            "volume_number": None,
+            "volume_pages_tbrc_intro": None,
+            "volume_pages_total": None,
+            "wa_id": None,
+            "mw_id": None,
+        }
 
     else:
         return metadata
@@ -239,13 +268,13 @@ def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
     return chunks
 
 
-def _s3_key(w_id: str, i_id: str, i_version: str, etext_source: str) -> str:
+def _s3_key(rep_id: str, vol_id: str, vol_version: str, etext_source: str) -> str:
     """Build the S3 object key for an OCR parquet file."""
     source_in_fname = etext_source
     if etext_source == "ocrv1-ws-ldv1":
         source_in_fname = "ocrv1"
-    filename = f"{w_id}-{i_id}-{i_version}_{source_in_fname}.parquet"
-    return f"{etext_source}/{w_id}/{i_id}/{i_version}/{filename}"
+    filename = f"{rep_id}-{vol_id}-{vol_version}_{source_in_fname}.parquet"
+    return f"{etext_source}/{rep_id}/{vol_id}/{vol_version}/{filename}"
 
 
 def _download_from_s3(s3_key: str) -> BytesIO:
@@ -259,9 +288,9 @@ def _download_from_s3(s3_key: str) -> BytesIO:
 
 
 def import_ocr_from_s3(
-    w_id: str,
-    i_id: str,
-    i_version: str,
+    rep_id: str,
+    vol_id: str,
+    vol_version: str,
     etext_source: str,
 ) -> str:
     """
@@ -269,15 +298,15 @@ def import_ocr_from_s3(
 
     Returns the document ID of the created volume.
     """
-    key = _s3_key(w_id, i_id, i_version, etext_source)
+    key = _s3_key(rep_id, vol_id, vol_version, etext_source)
     parquet_buffer = _download_from_s3(key)
-    return _import_parquet(w_id, i_id, i_version, etext_source, parquet_buffer)
+    return _import_parquet(rep_id, vol_id, vol_version, etext_source, parquet_buffer)
 
 
 def _import_parquet(
-    w_id: str,
-    i_id: str,
-    i_version: str,
+    rep_id: str,
+    vol_id: str,
+    vol_version: str,
     etext_source: str,
     parquet_data: BytesIO,
 ) -> str:
@@ -305,7 +334,7 @@ def _import_parquet(
     logger.info("Processing %d pages (%d skipped due to errors)", len(pages_raw), skipped)
 
     # Build filename to page number mapping from dimensions.json
-    filename_to_pnum = build_filename_to_pnum_map(w_id, i_id)
+    filename_to_pnum = build_filename_to_pnum_map(rep_id, vol_id)
 
     # Build continuous text and page entries
     full_text_parts: list[str] = []
@@ -340,10 +369,10 @@ def _import_parquet(
     chunks = _build_chunks(full_text)
 
     # Fetch volume metadata from BDRC
-    metadata = fetch_volume_metadata(i_id)
+    metadata = fetch_volume_metadata(vol_id)
 
     # Check if document already exists to preserve certain fields
-    doc_id = _volume_doc_id(w_id, i_id, i_version, etext_source)
+    doc_id = _volume_doc_id(rep_id, vol_id, vol_version, etext_source)
     existing_doc = get_document(doc_id)
 
     # Assemble and index the volume document
@@ -367,24 +396,26 @@ def _import_parquet(
         logger.info("Creating new volume %s", doc_id)
 
     body = {
+        "id": doc_id,
         "type": DocumentType.VOLUME_ETEXT.value,
-        "w_id": w_id,
-        "i_id": i_id,
-        "i_version": i_version,
+        "rep_id": rep_id,
+        "vol_id": vol_id,
+        "vol_version": vol_version,
         "etext_source": etext_source,
         "status": existing_status,
         "volume_number": metadata["volume_number"],
+        "wa_id": metadata["wa_id"],
+        "mw_id": metadata["mw_id"],
         "nb_pages": len(pages),
-        "pages": [p.model_dump() for p in pages],
+        "pages": [p.model_dump(exclude_none=True) for p in pages],
         "segments": existing_segments,
         "chunks": [c.model_dump() for c in chunks],
         "cstart": 0,
         "cend": len(full_text),
         "first_imported_at": first_imported_at,
         "last_updated_at": now,
-        "join_field": {"name": "instance"},
     }
 
     index_document(doc_id, body)
-
+    
     return doc_id
