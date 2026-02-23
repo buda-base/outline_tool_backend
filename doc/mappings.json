@@ -112,6 +112,9 @@
             "segments": {
                 "type": "nested",
                 "properties": {
+                    "wa_id": { "type": "keyword" },
+                    "mw_id": { "type": "keyword" },
+                    "idx": { "type": "integer" },
                     "cstart": { "type": "integer" },
                     "cend": { "type": "integer" },
                     "title_bo": {
