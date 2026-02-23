@@ -333,23 +333,36 @@ def _import_parquet(
     pages_raw.sort(key=lambda x: x[0])
     logger.info("Processing %d pages (%d skipped due to errors)", len(pages_raw), skipped)
 
+    # Fetch volume metadata from BDRC to get intro pages count
+    metadata = fetch_volume_metadata(vol_id)
+    intro_pages = metadata.get("volume_pages_tbrc_intro") or 0
+    
+    if intro_pages > 0:
+        logger.info("Skipping first %d intro pages", intro_pages)
+
     # Build filename to page number mapping from dimensions.json
     filename_to_pnum = build_filename_to_pnum_map(rep_id, vol_id)
 
-    # Build continuous text and page entries
+    # Build continuous text and page entries, skipping intro pages
     full_text_parts: list[str] = []
     pages: list[PageEntry] = []
     offset = 0
+    pages_processed = 0
 
     for fname, lines in pages_raw:
-        page_text = "\n".join(lines)
-        cstart = offset
-        cend = offset + len(page_text)
-
-        # Get correct pnum from dimensions.json, fallback to None if not found
+        # Get correct pnum from dimensions.json
         pnum = filename_to_pnum.get(fname)
         if pnum is None:
             logger.warning("Page number not found for filename: %s", fname)
+        
+        # Skip intro pages based on pnum
+        if pnum is not None and pnum <= intro_pages:
+            logger.debug("Skipping intro page %d (%s)", pnum, fname)
+            continue
+        
+        page_text = "\n".join(lines)
+        cstart = offset
+        cend = offset + len(page_text)
 
         pages.append(
             PageEntry(
@@ -362,14 +375,13 @@ def _import_parquet(
 
         full_text_parts.append(page_text)
         offset = cend + 1  # +1 for the page separator newline
+        pages_processed += 1
 
+    logger.info("Processed %d pages (skipped %d intro pages)", pages_processed, intro_pages)
     full_text = "\n".join(full_text_parts)
 
     # Build search chunks
     chunks = _build_chunks(full_text)
-
-    # Fetch volume metadata from BDRC
-    metadata = fetch_volume_metadata(vol_id)
 
     # Check if document already exists to preserve certain fields
     doc_id = _volume_doc_id(rep_id, vol_id, vol_version, etext_source)
