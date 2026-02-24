@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.models import PaginatedResponse, VolumeAnnotationInput, VolumeOutput, VolumeStatus
-from api.services.volumes import get_volume, list_volumes, save_annotated_volume
+from api.services.volumes import get_volume_by_doc_id, list_volumes, save_annotated_volume
 
 router = APIRouter(prefix="/volumes", tags=["volumes"])
 
@@ -27,14 +27,14 @@ async def get_available_volumes(
     return PaginatedResponse(total=total, offset=offset, limit=limit, items=items)
 
 
-@router.get("/{rep_id}/{vol_id}")
-async def get_volume_data(rep_id: str, vol_id: str) -> VolumeOutput:
-    """Get full volume data by repository ID and volume ID."""
-    volume = get_volume(rep_id, vol_id)
+@router.get("/{volume_id}", name="get_volume_by_id")
+async def get_volume_by_id(volume_id: str) -> VolumeOutput:
+    """Get full volume data by its OpenSearch document ID."""
+    volume = get_volume_by_doc_id(volume_id)
     if volume is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Volume {rep_id}/{vol_id} not found",
+            detail=f"Volume {volume_id} not found",
         )
     return volume
 
@@ -43,7 +43,7 @@ async def get_volume_data(rep_id: str, vol_id: str) -> VolumeOutput:
 async def save_annotated_volume_data(volume_id: str, body: VolumeAnnotationInput) -> dict[str, str]:
     """
     Save annotated volume from frontend.
-    
+
     The volume_id should be the internal OpenSearch ID (e.g., W00CHZ0103341_I1CZ35_822f2e_ocrv1-ws-ldv1).
     """
     try:
@@ -57,5 +57,5 @@ async def save_annotated_volume_data(volume_id: str, body: VolumeAnnotationInput
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save annotated volume: {str(e)}",
+            detail=f"Failed to save annotated volume: {e!s}",
         )
