@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.models import PaginatedResponse, VolumeAnnotationInput, VolumeOutput, VolumeStatus
-from api.services.volumes import get_volume_by_doc_id, list_volumes, save_annotated_volume
+from api.services.volumes import get_volume_by_doc_id, list_volumes, save_annotated_volume, update_volume_status
 
 router = APIRouter(prefix="/volumes", tags=["volumes"])
 
@@ -37,6 +37,18 @@ async def get_volume_by_id(volume_id: str) -> VolumeOutput:
             detail=f"Volume {volume_id} not found",
         )
     return volume
+
+
+@router.patch("/{volume_id}/status")
+async def patch_volume_status(volume_id: str, new_status: VolumeStatus) -> VolumeOutput:
+    """Update only the status of a volume."""
+    try:
+        return update_volume_status(volume_id, new_status)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
 
 
 @router.post("/{volume_id}")

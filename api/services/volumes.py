@@ -7,6 +7,7 @@ from api.models import (
     VolumeAnnotationInput,
     VolumeInput,
     VolumeOutput,
+    VolumeStatus,
 )
 from api.services.os_client import extract_hits, get_document, search, update_document
 
@@ -42,6 +43,18 @@ def list_volumes(
     total: int = response["hits"]["total"]["value"]
     items = [VolumeOutput.model_validate(h) for h in extract_hits(response)]
     return items, total
+
+
+def update_volume_status(volume_id: str, new_status: VolumeStatus) -> VolumeOutput:
+    existing = get_document(volume_id)
+    if existing is None:
+        raise NotFoundError("Volume", volume_id)
+    partial: dict[str, Any] = {
+        "status": new_status.value,
+        "last_updated_at": datetime.now(UTC).isoformat(),
+    }
+    update_document(volume_id, partial)
+    return VolumeOutput.model_validate({**existing, **partial, "id": volume_id})
 
 
 def get_volume_by_doc_id(volume_id: str) -> VolumeOutput | None:
@@ -155,11 +168,10 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
 
         # Last segment must end at document's cend
         doc_cend = existing.get("cend")
-        if doc_cend is not None:
-            if sorted_segments[-1].cend != doc_cend:
-                raise ValueError(
-                    f"Last segment must end at document's cend={doc_cend}, but ends at {sorted_segments[-1].cend}"
-                )
+        if doc_cend is not None and sorted_segments[-1].cend != doc_cend:
+            raise ValueError(
+                f"Last segment must end at document's cend={doc_cend}, but ends at {sorted_segments[-1].cend}"
+            )
 
     # Convert AnnotatedSegment to internal Segment format
     segments = []
