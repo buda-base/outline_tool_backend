@@ -177,7 +177,7 @@ def sync_repo(
 
     logger.info("Processing %d .trig files for %s", len(trig_files), record_type)
 
-    batch_size = 500
+    batch_size = 5000
     now = datetime.now(UTC).isoformat()
     total_counts = SyncCounts()
     parse_errors = 0
@@ -265,6 +265,7 @@ def main() -> None:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
+    logging.getLogger("opensearch").setLevel(logging.WARNING)
 
     logger.info("Loading entity scores...")
     entity_scores = load_entity_scores()
