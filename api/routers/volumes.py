@@ -2,8 +2,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from api.models import PaginatedResponse, VolumeAnnotationInput, VolumeInput, VolumeOutput, VolumeStatus
-from api.services.volumes import get_volume, list_volumes, save_annotated_volume, update_volume
+from api.models import PaginatedResponse, VolumeAnnotationInput, VolumeOutput, VolumeStatus
+from api.services.volumes import get_volume, list_volumes, save_annotated_volume
 
 router = APIRouter(prefix="/volumes", tags=["volumes"])
 
@@ -37,12 +37,6 @@ async def get_volume_data(rep_id: str, vol_id: str) -> VolumeOutput:
             detail=f"Volume {rep_id}/{vol_id} not found",
         )
     return volume
-
-
-@router.put("/{rep_id}/{vol_id}")
-async def put_volume_data(rep_id: str, vol_id: str, body: VolumeInput) -> VolumeOutput:
-    """Update an existing volume (only the provided fields)."""
-    return update_volume(rep_id, vol_id, body)
 
 
 @router.post("/{volume_id}")

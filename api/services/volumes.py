@@ -189,7 +189,7 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
     
     # Update document with new data
     update_data = {
-        "record_status": data.record_status.value,
+        "status": data.status.value,
         "base_text": data.base_text,
         "segments": segments,
         "last_updated_at": datetime.now(UTC).isoformat(),

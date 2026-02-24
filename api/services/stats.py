@@ -43,7 +43,7 @@ def get_stats() -> Stats:
 
             status_buckets = bucket.get("by_status", {}).get("buckets", [])
             for status_bucket in status_buckets:
-                if status_bucket["key"] == VolumeStatus.COMPLETED.value:
+                if status_bucket["key"] == VolumeStatus.REVIEWED.value:
                     nb_volumes_finished.no_preexisting_catalog = status_bucket["doc_count"]
 
             segments_agg = bucket.get("total_segments", {})

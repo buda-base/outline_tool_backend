@@ -35,6 +35,7 @@
                 }
             },
             "record_status": { "type": "keyword" },
+            "status": { "type": "keyword" },
             "source_meta": {
                 "properties": {
                     "updated_at": { "type": "date" }

@@ -5,14 +5,15 @@ import string
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class VolumeStatus(StrEnum):
-    NEW = "new"
+    """Annotation workflow status - managed by the annotation code."""
+    ACTIVE = "active"
     IN_PROGRESS = "in_progress"
-    REVIEW = "review"
-    COMPLETED = "completed"
+    IN_REVIEW = "in_review"
+    REVIEWED = "reviewed"
 
 
 class SegmentType(StrEnum):
@@ -27,6 +28,7 @@ class DocumentType(StrEnum):
 
 
 class RecordStatus(StrEnum):
+    """Catalog record lifecycle - from BDRC or for Works/Persons."""
     ACTIVE = "active"
     DUPLICATE = "duplicate"
     WITHDRAWN = "withdrawn"
@@ -191,7 +193,7 @@ class VolumeBase(BaseModel):
     volume_number: int | None = None
     wa_id: str | None = None
     mw_id: str | None = None
-    status: VolumeStatus = VolumeStatus.NEW
+    status: VolumeStatus = VolumeStatus.ACTIVE
     pages: list[PageEntry] = Field(default_factory=list)
     segments: list[Segment] = Field(default_factory=list)
 
@@ -229,10 +231,12 @@ class ImportOCRRequest(BaseModel):
 
 class VolumeAnnotationInput(BaseModel):
     """Input model for annotated volume from frontend."""
+    model_config = ConfigDict(extra='forbid')
+    
     rep_id: str
-    record_status: RecordStatus
     vol_id: str
     vol_version: str
+    status: VolumeStatus
     base_text: str  # The base text (not chunked)
     segments: list[AnnotatedSegment]
 

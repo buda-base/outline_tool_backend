@@ -394,7 +394,7 @@ def _import_parquet(
     if existing_doc:
         first_imported_at = existing_doc.get("first_imported_at", now)
         existing_segments = existing_doc.get("segments", [])
-        existing_status = existing_doc.get("status", VolumeStatus.NEW.value)
+        existing_status = existing_doc.get("status", VolumeStatus.ACTIVE.value)
         logger.info(
             "Reimporting existing volume %s - preserving %d segments and status=%s",
             doc_id,
@@ -404,7 +404,7 @@ def _import_parquet(
     else:
         first_imported_at = now
         existing_segments = []
-        existing_status = VolumeStatus.NEW.value
+        existing_status = VolumeStatus.ACTIVE.value
         logger.info("Creating new volume %s", doc_id)
 
     body = {
