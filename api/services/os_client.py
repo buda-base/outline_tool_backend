@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from opensearchpy.exceptions import NotFoundError as OSNotFoundError
@@ -57,7 +58,8 @@ def search(
 
 
 def bulk_operation(body: list[dict[str, Any]], *, refresh: bool = False) -> dict[str, Any]:
-    return opensearch_client.bulk(body=body, index=index_name, refresh=refresh)
+    ndjson = "\n".join(json.dumps(line) for line in body) + "\n"
+    return opensearch_client.bulk(body=ndjson, index=index_name, refresh=refresh)
 
 
 def refresh_index() -> None:
