@@ -177,38 +177,55 @@ def sync_repo(
 
     logger.info("Processing %d .trig files for %s", len(trig_files), record_type)
 
-    # Parse all trig files
-    parsed_records: list[ParsedRecord] = []
+    batch_size = 500
+    now = datetime.now(UTC).isoformat()
+    total_counts = SyncCounts()
     parse_errors = 0
-    for trig_file in trig_files:
-        parsed = parse_trig_file(trig_file)
-        if parsed is not None:
-            parsed_records.append(parsed)
-        else:
-            parse_errors += 1
+
+    for batch_start in range(0, len(trig_files), batch_size):
+        batch = trig_files[batch_start : batch_start + batch_size]
+        logger.info(
+            "Batch %d-%d of %d",
+            batch_start,
+            batch_start + len(batch),
+            len(trig_files),
+        )
+
+        parsed_records: list[ParsedRecord] = []
+        for trig_file in batch:
+            parsed = parse_trig_file(trig_file)
+            if parsed is not None:
+                parsed_records.append(parsed)
+            else:
+                parse_errors += 1
+
+        if dry_run:
+            for rec in parsed_records:
+                logger.info(
+                    "[dry-run] %s %s | released=%s | label=%s | authors=%s",
+                    rec.type,
+                    rec.id,
+                    rec.is_released,
+                    rec.pref_label_bo,
+                    rec.authors,
+                )
+            total_counts.skipped += len(parsed_records)
+            continue
+
+        counts = process_parsed_records(parsed_records, entity_scores, now=now)
+        total_counts.upserted += counts.upserted
+        total_counts.merged += counts.merged
+        total_counts.withdrawn += counts.withdrawn
+        total_counts.skipped += counts.skipped
 
     if parse_errors:
         logger.warning("Failed to parse %d files", parse_errors)
 
-    if dry_run:
-        for rec in parsed_records:
-            logger.info(
-                "[dry-run] %s %s | released=%s | label=%s | authors=%s",
-                rec.type,
-                rec.id,
-                rec.is_released,
-                rec.pref_label_bo,
-                rec.authors,
-            )
-        return SyncCounts(skipped=len(parsed_records))
+    if not dry_run:
+        refresh_index()
+        _write_watermark(watermark_id, head_revision)
 
-    now = datetime.now(UTC).isoformat()
-    counts = process_parsed_records(parsed_records, entity_scores, now=now)
-
-    refresh_index()
-    _write_watermark(watermark_id, head_revision)
-
-    return counts
+    return total_counts
 
 
 def main() -> None:
