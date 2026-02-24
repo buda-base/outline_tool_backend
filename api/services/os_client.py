@@ -1,12 +1,8 @@
-import json
-import logging
 from typing import Any
 
 from opensearchpy.exceptions import NotFoundError as OSNotFoundError
 
 from api.config import index_name, opensearch_client
-
-logger = logging.getLogger(__name__)
 
 
 def index_document(doc_id: str, body: dict[str, Any], routing: str | None = None) -> dict[str, Any]:
@@ -61,10 +57,7 @@ def search(
 
 
 def bulk_operation(body: list[dict[str, Any]], *, refresh: bool = False) -> dict[str, Any]:
-    logger.info("bulk_operation: %d items, first action: %s", len(body), body[0] if body else "empty")
-    ndjson = "\n".join(json.dumps(line) for line in body) + "\n"
-    logger.info("bulk_operation: ndjson length=%d, ends_with_newline=%s", len(ndjson), ndjson.endswith("\n"))
-    return opensearch_client.bulk(body=ndjson, index=index_name, refresh=refresh)
+    return opensearch_client.bulk(body=body, index=index_name, refresh=refresh)
 
 
 def refresh_index() -> None:
