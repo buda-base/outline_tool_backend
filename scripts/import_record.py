@@ -82,7 +82,7 @@ def process_parsed_records(
                 type=record.type,
                 pref_label_bo=record.pref_label_bo,
                 alt_label_bo=record.alt_label_bo,
-                author=record.author,
+                authors=record.authors,
                 db_score=entity_scores.get(record.id),
             )
         )

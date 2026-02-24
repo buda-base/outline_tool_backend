@@ -31,8 +31,8 @@ _UPSERT_SCRIPT = """
         if (params.doc.db_score != null) {
             ctx._source.db_score = params.doc.db_score;
         }
-        if (params.doc.author != null) {
-            ctx._source.author = params.doc.author;
+        if (params.doc.authors != null) {
+            ctx._source.authors = params.doc.authors;
         }
         ctx._source.import.last_result = 'updated_or_created';
     } else {
@@ -63,9 +63,8 @@ def _build_upsert_action(record: ImportRecord, now: str) -> list[dict[str, Any]]
         "curation": {**_DEFAULT_CURATION},
         "pref_label_bo": record.pref_label_bo,
         "alt_label_bo": record.alt_label_bo,
+        "authors": record.authors,
     }
-    if record.author is not None:
-        doc_body["author"] = record.author
     if record.db_score is not None:
         doc_body["db_score"] = record.db_score
 

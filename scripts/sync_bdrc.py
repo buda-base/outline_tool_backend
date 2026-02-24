@@ -193,12 +193,12 @@ def sync_repo(
     if dry_run:
         for rec in parsed_records:
             logger.info(
-                "[dry-run] %s %s | released=%s | label=%s | author=%s",
+                "[dry-run] %s %s | released=%s | label=%s | authors=%s",
                 rec.type,
                 rec.id,
                 rec.is_released,
                 rec.pref_label_bo,
-                rec.author,
+                rec.authors,
             )
         return SyncCounts(skipped=len(parsed_records))
 

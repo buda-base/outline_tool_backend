@@ -62,20 +62,20 @@ def _extract_labels(graph: ConjunctiveGraph, subject: URIRef, predicate: URIRef)
         elif lang == "bo-x-ewts":
             bo_ewts.append(str(obj))
 
-    if bo_direct:
-        return bo_direct
-    return [_ewts_to_unicode(e) for e in bo_ewts]
+    return bo_direct + [_ewts_to_unicode(e) for e in bo_ewts]
 
 
-def _extract_author(graph: ConjunctiveGraph, subject: URIRef) -> str | None:
-    """Extract the author person ID from :creator nodes.
+def _extract_authors(graph: ConjunctiveGraph, subject: URIRef) -> list[str]:
+    """Extract author person IDs from :creator nodes.
 
     Traverses :creator blank/named nodes, checks :role against author roles.
-    If R0ER0014 is present on any creator, that creator wins over all others.
-    Returns the local name (P...) of the :agent, or None.
+    If any creator has role R0ER0014 (commentator), only those are returned.
+    Otherwise all matching authors are returned.
+    Returns local names (P...) of the :agent URIs.
     """
     bdr_prefix = str(BDR)
-    first_author: str | None = None
+    priority_authors: list[str] = []
+    other_authors: list[str] = []
 
     for creator_node in graph.objects(subject, BDO.creator):
         role = None
@@ -94,11 +94,11 @@ def _extract_author(graph: ConjunctiveGraph, subject: URIRef) -> str | None:
             continue
 
         if role == _PRIORITY_AUTHOR_ROLE:
-            return agent
-        if first_author is None:
-            first_author = agent
+            priority_authors.append(agent)
+        else:
+            other_authors.append(agent)
 
-    return first_author
+    return priority_authors or other_authors
 
 
 def _detect_type(record_id: str) -> str:
@@ -145,10 +145,10 @@ def parse_trig_file(file_path: Path) -> ParsedRecord | None:
 
     record_type = _detect_type(record_id)
 
-    # --- author (works only) ---
-    author: str | None = None
+    # --- authors (works only) ---
+    authors: list[str] = []
     if record_type == "work":
-        author = _extract_author(graph, resource_subject)
+        authors = _extract_authors(graph, resource_subject)
 
     return ParsedRecord(
         id=record_id,
@@ -157,5 +157,5 @@ def parse_trig_file(file_path: Path) -> ParsedRecord | None:
         replacement_id=replacement_id,
         pref_label_bo=pref_label_bo,
         alt_label_bo=alt_label_bo,
-        author=author,
+        authors=authors,
     )

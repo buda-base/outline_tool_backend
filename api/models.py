@@ -54,7 +54,7 @@ class ParsedRecord(BaseModel):
     replacement_id: str | None = None
     pref_label_bo: str | None = None
     alt_label_bo: list[str] = Field(default_factory=list)
-    author: str | None = None
+    authors: list[str] = Field(default_factory=list)
 
 
 class ImportRecord(BaseModel):
@@ -62,7 +62,7 @@ class ImportRecord(BaseModel):
     type: str
     pref_label_bo: str | None = None
     alt_label_bo: list[str] = Field(default_factory=list)
-    author: str | None = None
+    authors: list[str] = Field(default_factory=list)
     db_score: float | None = None
 
 
@@ -170,7 +170,7 @@ class PersonOutput(PersonBase, RecordOutput):
 class WorkBase(BaseModel):
     pref_label_bo: str | None = None
     alt_label_bo: str | None = None
-    author: str | None = None
+    authors: list[str] = Field(default_factory=list)
     versions: list[str] = Field(default_factory=list)
 
 
