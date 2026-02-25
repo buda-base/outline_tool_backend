@@ -18,8 +18,8 @@ import sys
 import time
 from pathlib import Path
 
+from api.config import index_name, opensearch_client
 from api.services.ocr_import import import_ocr_from_s3
-from api.services.os_client import get_document
 from api.services.volumes import _volume_doc_id
 
 logging.basicConfig(
@@ -87,7 +87,7 @@ def main() -> None:
 
         if not args.force:
             doc_id = _volume_doc_id(w_id, i_id, i_version, etext_source)
-            if get_document(doc_id) is not None:
+            if opensearch_client.exists(index=index_name, id=doc_id):
                 logger.info("[%d/%d] Skipping %s (already indexed)", i + 1, len(rows), doc_id)
                 skipped += 1
                 continue
