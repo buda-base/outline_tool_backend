@@ -70,6 +70,7 @@ def get_opensearch_client() -> OpenSearch:
         ssl_show_warn=False,
         http_auth=http_auth,
         serializer=OrjsonSerializer(),
+        timeout=60,
     )
 
 
