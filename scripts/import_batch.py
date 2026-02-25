@@ -19,6 +19,8 @@ import time
 from pathlib import Path
 
 from api.services.ocr_import import import_ocr_from_s3
+from api.services.os_client import get_document
+from api.services.volumes import _volume_doc_id
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,6 +53,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Import volumes from S3 parquet files")
     parser.add_argument("csv", help="Path to the batch CSV file (w_id,i_id,i_version,etext_source)")
     parser.add_argument("--dry-run", action="store_true", help="Only list what would be imported")
+    parser.add_argument("--force", action="store_true", help="Reimport volumes even if already indexed")
     parser.add_argument(
         "--start-from",
         type=int,
@@ -69,6 +72,7 @@ def main() -> None:
         return
 
     succeeded = 0
+    skipped = 0
     failed = 0
     failed_rows: list[tuple[int, dict[str, str], str]] = []
 
@@ -80,6 +84,13 @@ def main() -> None:
         i_id = row["i_id"]
         i_version = row["i_version"]
         etext_source = row["etext_source"]
+
+        if not args.force:
+            doc_id = _volume_doc_id(w_id, i_id, i_version, etext_source)
+            if get_document(doc_id) is not None:
+                logger.info("[%d/%d] Skipping %s (already indexed)", i + 1, len(rows), doc_id)
+                skipped += 1
+                continue
 
         logger.info(
             "[%d/%d] Importing %s / %s / %s / %s",
@@ -103,7 +114,13 @@ def main() -> None:
             failed_rows.append((i, row, str(sys.exc_info()[1])))
 
     logger.info("=" * 60)
-    logger.info("Import complete: %d succeeded, %d failed out of %d", succeeded, failed, len(rows))
+    logger.info(
+        "Import complete: %d succeeded, %d skipped, %d failed out of %d",
+        succeeded,
+        skipped,
+        failed,
+        len(rows),
+    )
 
     if failed_rows:
         logger.warning("Failed rows:")
