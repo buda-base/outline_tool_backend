@@ -76,14 +76,16 @@ def process_parsed_records(
                 counts.withdrawn += 1
             continue
 
+        raw_score = entity_scores.get(record.id)
+        capped_score = min(raw_score, 65504.0) if raw_score is not None else None
         records_to_upsert.append(
             ImportRecord(
                 id=record.id,
                 type=record.type,
                 pref_label_bo=record.pref_label_bo,
                 alt_label_bo=record.alt_label_bo,
-                author=record.author,
-                db_score=entity_scores.get(record.id),
+                authors=record.authors,
+                db_score=capped_score,
             )
         )
 

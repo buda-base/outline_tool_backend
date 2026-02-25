@@ -112,7 +112,7 @@ def _get_record(doc_id: str) -> dict[str, Any] | None:
 
 def create_work(data: WorkInput) -> WorkOutput:
     """Create a new local work record with a generated ID."""
-    work_id = generate_id(prefix="W")
+    work_id = generate_id(prefix="WA")
     return WorkOutput.model_validate(_create_record(data, DocumentType.WORK, work_id))
 
 

@@ -15,12 +15,14 @@ class OrjsonSerializer(JSONSerializer):
     which is more efficient and readable than ASCII-escaped JSON.
     """
 
-    def dumps(self, data: dict) -> str:
+    def dumps(self, data: object) -> str:
         """Serialize data to JSON using orjson.
 
         Note: orjson does not escape non-ASCII characters by default,
         making it ideal for Tibetan text content.
         """
+        if isinstance(data, str):
+            return data
         # orjson.dumps returns bytes, opensearch-py expects str
         return orjson.dumps(data).decode("utf-8")
 
