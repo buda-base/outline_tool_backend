@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 class VolumeStatus(StrEnum):
     """Annotation workflow status - managed by the annotation code."""
+
     ACTIVE = "active"
     IN_PROGRESS = "in_progress"
     IN_REVIEW = "in_review"
@@ -29,6 +30,7 @@ class DocumentType(StrEnum):
 
 class RecordStatus(StrEnum):
     """Catalog record lifecycle - from BDRC or for Works/Persons."""
+
     ACTIVE = "active"
     DUPLICATE = "duplicate"
     WITHDRAWN = "withdrawn"
@@ -99,6 +101,7 @@ class Segment(BaseModel):
 
 class AnnotatedSegment(BaseModel):
     """Segment with full annotation data from frontend."""
+
     cstart: int
     cend: int
     title_bo: str | list[str]  # Mandatory, can be string or list
@@ -113,13 +116,13 @@ class AnnotatedSegment(BaseModel):
         """Validate that mw_id contains an underscore and has proper format."""
         if "_" not in v:
             raise ValueError("mw_id must contain an underscore (format: {parent_mw_id}_{segment_id})")
-        prefix = v.split("_")[0]
+        prefix = v.split("_", maxsplit=1)[0]
         if not prefix or not prefix[0].isupper():
             raise ValueError("mw_id must start with a valid ID prefix (e.g., MW123_456)")
         return v
 
     @model_validator(mode="after")
-    def validate_wa_id_for_text(self) -> "AnnotatedSegment":
+    def validate_wa_id_for_text(self) -> AnnotatedSegment:
         """Validate that wa_id is present when part_type is 'text'."""
         if self.part_type == SegmentType.TEXT and not self.wa_id:
             raise ValueError("wa_id is mandatory when part_type is 'text'")
@@ -231,8 +234,9 @@ class ImportOCRRequest(BaseModel):
 
 class VolumeAnnotationInput(BaseModel):
     """Input model for annotated volume from frontend."""
-    model_config = ConfigDict(extra='forbid')
-    
+
+    model_config = ConfigDict(extra="forbid")
+
     rep_id: str
     vol_id: str
     vol_version: str

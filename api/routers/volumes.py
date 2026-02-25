@@ -60,14 +60,16 @@ async def save_annotated_volume_data(volume_id: str, body: VolumeAnnotationInput
     """
     try:
         result = save_annotated_volume(volume_id, body)
-        return {"status": "success", "id": result}
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to save annotated volume: {e!s}",
-        )
+        ) from e
+    else:
+        return {"status": "success", "id": result}

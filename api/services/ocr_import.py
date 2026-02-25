@@ -82,7 +82,7 @@ def get_image_list_s3(rep_id: str, vol_id: str) -> list[dict[str, str | int]] | 
          "height": 1731
       }
     ]
-    
+
     Excludes entries where filename ends with .json or where width/height is absent or null.
     Page number of filename X is the index of the entry in the list that has filename = X, starting at 1.
     """
@@ -122,7 +122,7 @@ def get_image_list_s3(rep_id: str, vol_id: str) -> list[dict[str, str | int]] | 
 def build_filename_to_pnum_map(rep_id: str, vol_id: str) -> dict[str, int]:
     """
     Build a mapping from filename to page number based on dimensions.json.
-    
+
     Returns empty dict if dimensions.json cannot be fetched or parsed.
     """
     image_list = get_image_list_s3(rep_id, vol_id)
@@ -141,7 +141,7 @@ def build_filename_to_pnum_map(rep_id: str, vol_id: str) -> dict[str, int]:
 def fetch_volume_metadata(vol_id: str) -> dict[str, int | str | None]:
     """
     Fetch volume metadata from BDRC SPARQL endpoint.
-    
+
     Args:
         vol_id: Volume ID (e.g., "I0886")
 
@@ -149,18 +149,18 @@ def fetch_volume_metadata(vol_id: str) -> dict[str, int | str | None]:
         Dict with volume metadata including volume_number, wa_id, mw_id
     """
     url = f"{BDRC_SPARQL_URL}?R_RES=bdr:{vol_id}"
-    
+
     try:
         logger.info("Fetching volume metadata from %s", url)
         # Request TTL format via Accept header
         headers = {"Accept": "text/turtle"}
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
-        
+
         # Parse TTL content
         graph = Graph()
         graph.parse(data=response.text, format="turtle")
-        
+
         # Build the subject URI for this resource
         subject = BDR[vol_id]
 
@@ -270,6 +270,13 @@ def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
 
 def _s3_key(rep_id: str, vol_id: str, vol_version: str, etext_source: str) -> str:
     """Build the S3 object key for an OCR parquet file."""
+    if etext_source == "google_books":
+        filename = f"{rep_id}_{vol_id}_{vol_version}_gb.parquet"
+        return f"google_books/{rep_id}/{vol_id}/{vol_version}/{filename}"
+    if etext_source == "google_vision":
+        filename = f"{rep_id}-{vol_id}-{vol_version}-gv.parquet"
+        return f"gv/{rep_id}/{vol_id}/{vol_version}/{filename}"
+    # ocrv1-ws-ldv1 (original format)
     source_in_fname = etext_source
     if etext_source == "ocrv1-ws-ldv1":
         source_in_fname = "ocrv1"
@@ -318,17 +325,32 @@ def _import_parquet(
     table = pq.read_table(parquet_data)
     logger.info("Read %d rows from parquet file", table.num_rows)
 
-    # Collect successful pages: (filename, line_texts)
-    pages_raw: list[tuple[str, list[str]]] = []
+    has_ok_col = "ok" in table.column_names
+    has_text_col = "text" in table.column_names
+    has_line_texts_col = "line_texts" in table.column_names
+
+    # Collect successful pages: (filename, page_text)
+    pages_raw: list[tuple[str, str]] = []
     skipped = 0
     for i in range(table.num_rows):
-        ok = table.column("ok")[i].as_py()
-        if not ok:
+        if has_ok_col:
+            ok = table.column("ok")[i].as_py()
+            if not ok:
+                skipped += 1
+                continue
+        fname = table.column("img_file_name")[i].as_py()
+        if has_text_col:
+            # google_books / google_vision: single text field per page
+            page_text = table.column("text")[i].as_py() or ""
+        elif has_line_texts_col:
+            # ocrv1: list of line strings per page
+            lines = table.column("line_texts")[i].as_py() or []
+            page_text = "\n".join(lines)
+        else:
+            logger.warning("Row %d has no 'text' or 'line_texts' column, skipping", i)
             skipped += 1
             continue
-        fname = table.column("img_file_name")[i].as_py()
-        lines = table.column("line_texts")[i].as_py() or []
-        pages_raw.append((fname, lines))
+        pages_raw.append((fname, page_text))
 
     pages_raw.sort(key=lambda x: x[0])
     logger.info("Processing %d pages (%d skipped due to errors)", len(pages_raw), skipped)
@@ -336,7 +358,7 @@ def _import_parquet(
     # Fetch volume metadata from BDRC to get intro pages count
     metadata = fetch_volume_metadata(vol_id)
     intro_pages = metadata.get("volume_pages_tbrc_intro") or 0
-    
+
     if intro_pages > 0:
         logger.info("Skipping first %d intro pages", intro_pages)
 
@@ -349,18 +371,16 @@ def _import_parquet(
     offset = 0
     pages_processed = 0
 
-    for fname, lines in pages_raw:
+    for fname, page_text in pages_raw:
         # Get correct pnum from dimensions.json
         pnum = filename_to_pnum.get(fname)
         if pnum is None:
             logger.warning("Page number not found for filename: %s", fname)
-        
+
         # Skip intro pages based on pnum
         if pnum is not None and pnum <= intro_pages:
             logger.debug("Skipping intro page %d (%s)", pnum, fname)
             continue
-        
-        page_text = "\n".join(lines)
         cstart = offset
         cend = offset + len(page_text)
 
@@ -429,5 +449,5 @@ def _import_parquet(
     }
 
     index_document(doc_id, body)
-    
+
     return doc_id
