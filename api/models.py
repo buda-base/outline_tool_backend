@@ -93,8 +93,8 @@ class Segment(BaseModel):
     cend: int
     segment_type: SegmentType = SegmentType.TEXT
     parent_segment: str | None = None
-    title_bo: str | None = None
-    author_name_bo: str | None = None
+    title_bo: str | list[str] | None = None
+    author_name_bo: str | list[str] | None = None
 
 
 class AnnotatedSegment(BaseModel):
