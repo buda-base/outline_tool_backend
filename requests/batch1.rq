@@ -1,0 +1,25 @@
+# modern publications, multiple volumes and no outlines
+
+select distinct ?w ?i {
+	?mw :printMethod bdr:PrintMethod_Modern ;
+	    :instanceHasReproduction ?w ;
+	    :script ?s .
+	FILTER(?s = bdr:ScriptTibt || ?s = bdr:ScriptDbuCan)
+	?mw :copyrightStatus ?cs .
+	FILTER(?cs = bdr:CopyrightPublicDomain || ?cs = bdr:CopyrightClaimed)
+	FILTER(not exists {
+	  ?o :outlineOf ?mw .
+	  ?oadm adm:adminAbout ?o ; adm:status bda:StatusReleased .
+	})
+	FILTER(exists{
+	  ?w a :ImageInstance .
+	  ?wadm adm:adminAbout ?w ; adm:status bda:StatusReleased .
+	  ?w :numberOfVolumes ?n .
+	  FILTER(?n > 1)
+	})
+	?w :instanceHasVolume ?i .
+	FILTER(exists{
+	  ?i :volumePagesTotal ?vpt .
+	  FILTER(?vpt > 3)
+	})
+}
