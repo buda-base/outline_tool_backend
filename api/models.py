@@ -158,7 +158,7 @@ class RecordOutput(BaseModel):
 
 class PersonBase(BaseModel):
     pref_label_bo: str | None = None
-    alt_label_bo: str | None = None
+    alt_label_bo: list[str] = Field(default_factory=list)
     dates: str | None = None
 
 
@@ -172,7 +172,7 @@ class PersonOutput(PersonBase, RecordOutput):
 
 class WorkBase(BaseModel):
     pref_label_bo: str | None = None
-    alt_label_bo: str | None = None
+    alt_label_bo: list[str] = Field(default_factory=list)
     authors: list[str] = Field(default_factory=list)
     versions: list[str] = Field(default_factory=list)
 
