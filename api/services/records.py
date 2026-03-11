@@ -17,20 +17,23 @@ from api.services.os_client import extract_hits, get_document, index_document, s
 from query_builder import build_search_query
 
 
-def _next_sequential_id(prefix: str, start: int) -> str:
+def _next_sequential_id(prefix: str, start: int, doc_type: DocumentType) -> str:
     """Generate the next sequential ID by querying OpenSearch for the current max."""
-
     body: dict[str, Any] = {
-        "query": {"prefix": {"_id": prefix}},
-        "size": 0,
-        "aggs": {"all_ids": {"terms": {"field": "_id", "size": 10000}}},
+        "query": {
+            "bool": {
+                "filter": [
+                    {"term": {"type": doc_type.value}},
+                    {"term": {"origin": Origin.LOCAL.value}},
+                ],
+            },
+        },
     }
-    response = search(body, size=0)
+    response = search(body, size=10000, source_excludes=["*"])
 
     max_num = start - 1
-    buckets = response.get("aggregations", {}).get("all_ids", {}).get("buckets", [])
-    for bucket in buckets:
-        suffix = bucket["key"].removeprefix(prefix)
+    for hit in response["hits"]["hits"]:
+        suffix = hit["_id"].removeprefix(prefix)
         if suffix.isdigit():
             num = int(suffix)
             max_num = max(max_num, num)
@@ -132,7 +135,7 @@ def _get_record(doc_id: str) -> dict[str, Any] | None:
 
 def create_work(data: WorkInput) -> WorkOutput:
     """Create a new local work record with a generated ID."""
-    work_id = _next_sequential_id(prefix="WA1BC", start=10)
+    work_id = _next_sequential_id(prefix="WA1BC", start=10, doc_type=DocumentType.WORK)
     return WorkOutput.model_validate(_create_record(data, DocumentType.WORK, work_id))
 
 
@@ -180,7 +183,7 @@ def merge_work(work_id: str, canonical_id: str, modified_by: str) -> WorkOutput:
 
 def create_person(data: PersonInput) -> PersonOutput:
     """Create a new local person record with a generated ID."""
-    person_id = _next_sequential_id(prefix="P1BC", start=1)
+    person_id = _next_sequential_id(prefix="P1BC", start=1, doc_type=DocumentType.PERSON)
     return PersonOutput.model_validate(_create_record(data, DocumentType.PERSON, person_id))
 
 
