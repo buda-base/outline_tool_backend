@@ -253,6 +253,34 @@ class VolumeAnnotationInput(BaseModel):
         return v
 
 
+class MatchRequest(BaseModel):
+    text_bo: str | None = None
+    volume_id: str | None = None
+    cstart: int | None = None
+    cend: int | None = None
+
+    @model_validator(mode="after")
+    def validate_input(self) -> MatchRequest:
+        """Either text_bo or (volume_id + cstart + cend) must be provided."""
+        has_text = self.text_bo is not None
+        has_volume_ref = self.volume_id is not None and self.cstart is not None and self.cend is not None
+        if not has_text and not has_volume_ref:
+            raise ValueError("Either 'text_bo' or ('volume_id', 'cstart', 'cend') must be provided")
+        return self
+
+
+class MatchedVolume(BaseModel):
+    volume_id: str
+    score: float
+
+
+class MatchCandidate(BaseModel):
+    wa_id: str | None = None
+    pref_label_bo: str | None = None
+    score: float
+    matched_volumes: list[MatchedVolume] = Field(default_factory=list)
+
+
 class CatalogBreakdown(BaseModel):
     with_preexisting_catalog: int = 0
     no_preexisting_catalog: int = 0

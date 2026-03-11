@@ -17,6 +17,7 @@ from api.config import index_name, opensearch_client
 from api.exceptions import ConflictError, NotFoundError
 from api.routers import audit as audit_router
 from api.routers import data_import as import_router
+from api.routers import matching as matching_router
 from api.routers import persons as persons_router
 from api.routers import stats as stats_router
 from api.routers import volumes as volumes_router
@@ -57,6 +58,7 @@ app.include_router(persons_router.router)
 app.include_router(stats_router.router)
 app.include_router(import_router.router)
 app.include_router(audit_router.router)
+app.include_router(matching_router.router)
 
 
 @app.exception_handler(NotFoundError)

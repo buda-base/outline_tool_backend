@@ -26,12 +26,9 @@ class OrjsonSerializer(JSONSerializer):
         # orjson.dumps returns bytes, opensearch-py expects str
         return orjson.dumps(data).decode("utf-8")
 
-    def loads(self, data: str | bytes) -> dict:
-        """Deserialize JSON data using orjson.ß"""
-        # Handle both str and bytes input
-        if isinstance(data, str):
-            data = data.encode("utf-8")
-        return orjson.loads(data)
+    def loads(self, s: str) -> object:
+        """Deserialize JSON data using orjson."""
+        return orjson.loads(s)
 
 
 class Config:
