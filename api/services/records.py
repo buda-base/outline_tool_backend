@@ -11,9 +11,10 @@ from api.models import (
     RecordStatus,
     WorkInput,
     WorkOutput,
+    WorkWithAuthors,
 )
 from api.services.audit import log_event
-from api.services.os_client import extract_hits, get_document, index_document, search, update_document
+from api.services.os_client import extract_hits, get_document, index_document, mget_documents, search, update_document
 from query_builder import build_search_query
 
 
@@ -144,14 +145,19 @@ def update_work(work_id: str, data: WorkInput) -> WorkOutput:
     return WorkOutput.model_validate(_update_record(work_id, data, DocumentType.WORK, "Work"))
 
 
-def get_work(work_id: str) -> WorkOutput | None:
+def get_work(work_id: str) -> WorkWithAuthors | None:
     record = _get_record(work_id)
     if record is None:
         return None
-    return WorkOutput.model_validate(record)
+    author_ids = record.get("authors", [])
+    person_map = mget_documents(author_ids)
+    author_records = [
+        PersonOutput.model_validate({**person_map[aid], "id": aid}) for aid in author_ids if aid in person_map
+    ]
+    return WorkWithAuthors.model_validate({**record, "author_records": author_records})
 
 
-def search_works(title: str | None = None, author_name: str | None = None, size: int = 20) -> list[WorkOutput]:
+def search_works(title: str | None = None, author_name: str | None = None, size: int = 20) -> list[WorkWithAuthors]:
     type_filter: list[dict[str, Any]] = [
         {"term": {"type": DocumentType.WORK.value}},
         {"term": {"record_status": RecordStatus.ACTIVE.value}},
@@ -173,7 +179,17 @@ def search_works(title: str | None = None, author_name: str | None = None, size:
         )
 
     response = search(body, size=size)
-    return [WorkOutput.model_validate(h) for h in extract_hits(response)]
+    hits = extract_hits(response)
+
+    all_author_ids = list({aid for h in hits for aid in h.get("authors", [])})
+    person_map = mget_documents(all_author_ids)
+
+    def _resolve_authors(author_ids: list[str]) -> list[PersonOutput]:
+        return [PersonOutput.model_validate({**person_map[aid], "id": aid}) for aid in author_ids if aid in person_map]
+
+    return [
+        WorkWithAuthors.model_validate({**h, "author_records": _resolve_authors(h.get("authors", []))}) for h in hits
+    ]
 
 
 def merge_work(work_id: str, canonical_id: str, modified_by: str) -> WorkOutput:

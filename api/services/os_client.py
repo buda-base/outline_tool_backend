@@ -64,5 +64,15 @@ def refresh_index() -> None:
     opensearch_client.indices.refresh(index=index_name)
 
 
+def mget_documents(doc_ids: list[str]) -> dict[str, dict[str, Any]]:
+    if not doc_ids:
+        return {}
+    response = opensearch_client.mget(
+        body={"ids": doc_ids},
+        index=index_name,
+    )
+    return {doc["_id"]: doc["_source"] for doc in response["docs"] if doc.get("found")}
+
+
 def extract_hits(response: dict[str, Any]) -> list[dict[str, Any]]:
     return [{**hit["_source"], "id": hit["_id"]} for hit in response["hits"]["hits"]]

@@ -175,6 +175,10 @@ class WorkOutput(WorkBase, RecordOutput):
     pass
 
 
+class WorkWithAuthors(WorkOutput):
+    author_records: list[PersonOutput] = Field(default_factory=list)
+
+
 class MergeRequest(BaseModel):
     canonical_id: str
     modified_by: str

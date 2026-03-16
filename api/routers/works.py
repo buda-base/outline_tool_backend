@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.exceptions import NotFoundError
-from api.models import MergeRequest, WorkInput, WorkOutput
+from api.models import MergeRequest, WorkInput, WorkOutput, WorkWithAuthors
 from api.services.records import create_work, get_work, merge_work, search_works, update_work
 
 router = APIRouter(prefix="/works", tags=["works"])
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/works", tags=["works"])
 async def find_work(
     title: Annotated[str | None, Query()] = None,
     author_name: Annotated[str | None, Query()] = None,
-) -> list[WorkOutput]:
+) -> list[WorkWithAuthors]:
     """Search works by title and/or author name."""
     if not title and not author_name:
         raise HTTPException(
@@ -24,7 +24,7 @@ async def find_work(
 
 
 @router.get("/{work_id}")
-async def get_work_data(work_id: str) -> WorkOutput:
+async def get_work_data(work_id: str) -> WorkWithAuthors:
     """Get work data by ID."""
     work = get_work(work_id)
     if work is None:
