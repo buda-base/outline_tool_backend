@@ -24,7 +24,8 @@
                     "modified_at": { "type": "date" },
                     "modified_by": { "type": "keyword" },
                     "edit_version": { "type": "integer" },
-                    "status": { "type": "keyword" }
+                    "status": { "type": "keyword" },
+                    "status_matching": { "type": "keyword" }
                 }
             },
             "canonical_id": { "type": "keyword" },
@@ -35,7 +36,9 @@
                 }
             },
             "record_status": { "type": "keyword" },
+            "record_status_matching": { "type": "keyword" },
             "status": { "type": "keyword" },
+            "status_matching": { "type": "keyword" },
             "source_meta": {
                 "properties": {
                     "updated_at": { "type": "date" }
