@@ -283,6 +283,7 @@ class MatchCandidate(BaseModel):
     pref_label_bo: str | None = None
     score: float
     matched_volumes: list[MatchedVolume] = Field(default_factory=list)
+    author_records: list[PersonOutput] = Field(default_factory=list)
 
 
 class CatalogBreakdown(BaseModel):

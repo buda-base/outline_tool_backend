@@ -2,8 +2,8 @@ import logging
 from collections import defaultdict
 from typing import Any
 
-from api.models import DocumentType, MatchCandidate, MatchedVolume
-from api.services.os_client import get_document, search
+from api.models import DocumentType, MatchCandidate, MatchedVolume, PersonOutput
+from api.services.os_client import get_document, mget_documents, search
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +181,33 @@ def _group_hits_by_wa(hits: list[dict[str, Any]]) -> list[MatchCandidate]:
     return candidates
 
 
+def _resolve_candidates(candidates: list[MatchCandidate]) -> list[MatchCandidate]:
+    """Fetch actual work records to fill pref_label_bo and resolve author_records."""
+    wa_ids = [c.wa_id for c in candidates if c.wa_id is not None]
+    if not wa_ids:
+        return candidates
+
+    work_map = mget_documents(wa_ids)
+
+    all_author_ids = list({aid for doc in work_map.values() for aid in doc.get("authors", [])})
+    person_map = mget_documents(all_author_ids)
+
+    for candidate in candidates:
+        if candidate.wa_id is None or candidate.wa_id not in work_map:
+            continue
+        work_doc = work_map[candidate.wa_id]
+
+        if candidate.pref_label_bo is None:
+            candidate.pref_label_bo = work_doc.get("pref_label_bo")
+
+        author_ids = work_doc.get("authors", [])
+        candidate.author_records = [
+            PersonOutput.model_validate({**person_map[aid], "id": aid}) for aid in author_ids if aid in person_map
+        ]
+
+    return candidates
+
+
 def find_matching_works(
     text: str,
     *,
@@ -206,16 +233,11 @@ def find_matching_works(
         source_excludes=["chunks", "pages"],
     )
 
-    hits_raw = response["hits"]["hits"]
-    hits = []
-    for hit in hits_raw:
-        h = {**hit["_source"], "id": hit["_id"], "_score": hit.get("_score", 0.0)}
-        hits.append(h)
+    hits = [{**hit["_source"], "id": hit["_id"], "_score": hit.get("_score", 0.0)} for hit in response["hits"]["hits"]]
 
     logger.info("Matching query returned %d hits", len(hits))
 
-    candidates = _group_hits_by_wa(hits)
-    return candidates[:max_candidates]
+    return _resolve_candidates(_group_hits_by_wa(hits)[:max_candidates])
 
 
 def find_matching_works_by_volume_ref(
