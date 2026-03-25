@@ -216,6 +216,17 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
         if author_name_bo_list:
             internal_seg["author_name_bo"] = author_name_bo_list
 
+        if seg.title_orig_bo:
+            internal_seg["title_orig_bo"] = (
+                seg.title_orig_bo if isinstance(seg.title_orig_bo, list) else [seg.title_orig_bo]
+            )
+        if seg.author_name_orig_bo:
+            internal_seg["author_name_orig_bo"] = (
+                seg.author_name_orig_bo
+                if isinstance(seg.author_name_orig_bo, list)
+                else [seg.author_name_orig_bo]
+            )
+
         segments.append(internal_seg)
 
     # Update document with new data

@@ -99,6 +99,8 @@ class Segment(BaseModel):
     parent_segment: str | None = None
     title_bo: str | list[str] | None = None
     author_name_bo: str | list[str] | None = None
+    title_orig_bo: str | list[str] | None = None
+    author_name_orig_bo: str | list[str] | None = None
 
 
 class AnnotatedSegment(BaseModel):
@@ -108,6 +110,8 @@ class AnnotatedSegment(BaseModel):
     cend: int
     title_bo: str | list[str]  # Mandatory, can be string or list
     author_name_bo: str | list[str] | None = None  # Optional, can be string or list
+    title_orig_bo: str | list[str] | None = None
+    author_name_orig_bo: str | list[str] | None = None
     mw_id: str  # Must start with '{parent_mw_id}_'
     wa_id: str | None = None  # Mandatory for part_type='text'
     part_type: SegmentType  # 'text' or 'editorial'

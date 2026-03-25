@@ -136,6 +136,16 @@
                             }
                         }
                     },
+                    "title_orig_bo": {
+                        "type": "text",
+                        "analyzer": "tibetan-lenient",
+                        "index_options": "offsets"
+                    },
+                    "author_name_orig_bo": {
+                        "type": "text",
+                        "analyzer": "tibetan-lenient",
+                        "index_options": "offsets"
+                    },
                     "author_name_bo": {
                         "type": "text",
                         "analyzer": "tibetan-lenient",
