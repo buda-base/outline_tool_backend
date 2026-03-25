@@ -219,6 +219,20 @@ class PaginatedResponse(BaseModel):
     items: list[VolumeOutput] = Field(default_factory=list)
 
 
+class WorksPaginatedResponse(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    items: list[WorkWithAuthors] = Field(default_factory=list)
+
+
+class PersonsPaginatedResponse(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    items: list[PersonOutput] = Field(default_factory=list)
+
+
 class ImportOCRRequest(BaseModel):
     rep_id: str
     vol_id: str
