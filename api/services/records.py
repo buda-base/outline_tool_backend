@@ -18,6 +18,35 @@ from api.services.os_client import extract_hits, get_document, index_document, m
 from query_builder import build_search_query
 
 
+def _catalog_list_filters(
+    doc_type: DocumentType,
+    *,
+    modified_by: str | None = None,
+    pref_label_bo: str | None = None,
+    record_origin: Origin | None = None,
+    record_status: RecordStatus | None = None,
+    author_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """OpenSearch filter clauses for work/person list and search endpoints."""
+    filters: list[dict[str, Any]] = [
+        {"term": {"type": doc_type.value}},
+    ]
+    is_work = doc_type == DocumentType.WORK
+    if record_status is not None:
+        filters.append({"term": {"record_status": record_status.value}})
+    else:
+        filters.append({"term": {"record_status": RecordStatus.ACTIVE.value}})
+    if modified_by is not None:
+        filters.append({"term": {"curation.modified_by": modified_by}})
+    if pref_label_bo is not None:
+        filters.append({"match_phrase": {"pref_label_bo": pref_label_bo}})
+    if record_origin is not None:
+        filters.append({"term": {"origin": record_origin.value}})
+    if is_work and author_id is not None:
+        filters.append({"term": {"authors": author_id}})
+    return filters
+
+
 def _next_sequential_id(prefix: str, start: int, doc_type: DocumentType) -> str:
     """Generate the next sequential ID by querying OpenSearch for the current max."""
     body: dict[str, Any] = {
@@ -62,7 +91,7 @@ def _create_record(
         **data.model_dump(exclude={"modified_by"}),
         "type": doc_type.value,
         "origin": Origin.LOCAL.value,
-        "record_status": RecordStatus.ACTIVE.value,
+        "record_status": RecordStatus.NEW.value,
         "curation": _build_curation(data.modified_by, edit_version=1),
     }
     index_document(doc_id, body)
@@ -157,30 +186,7 @@ def get_work(work_id: str) -> WorkWithAuthors | None:
     return WorkWithAuthors.model_validate({**record, "author_records": author_records})
 
 
-def search_works(title: str | None = None, author_name: str | None = None, size: int = 20) -> list[WorkWithAuthors]:
-    type_filter: list[dict[str, Any]] = [
-        {"term": {"type": DocumentType.WORK.value}},
-        {"term": {"record_status": RecordStatus.ACTIVE.value}},
-    ]
-    search_text_parts: list[str] = []
-    if title:
-        search_text_parts.append(title)
-    if author_name:
-        search_text_parts.append(author_name)
-
-    if not search_text_parts:
-        body: dict[str, Any] = {"query": {"bool": {"filter": type_filter}}}
-    else:
-        body = build_search_query(
-            {
-                "query": " ".join(search_text_parts),
-                "filter": type_filter,
-            }
-        )
-
-    response = search(body, size=size)
-    hits = extract_hits(response)
-
+def _works_from_hits(hits: list[dict[str, Any]]) -> list[WorkWithAuthors]:
     all_author_ids = list({aid for h in hits for aid in h.get("authors", [])})
     person_map = mget_documents(all_author_ids)
 
@@ -190,6 +196,72 @@ def search_works(title: str | None = None, author_name: str | None = None, size:
     return [
         WorkWithAuthors.model_validate({**h, "author_records": _resolve_authors(h.get("authors", []))}) for h in hits
     ]
+
+
+def list_works(
+    *,
+    modified_by: str | None = None,
+    pref_label_bo: str | None = None,
+    record_origin: Origin | None = None,
+    record_status: RecordStatus | None = None,
+    author_id: str | None = None,
+    offset: int = 0,
+    limit: int = 50,
+) -> tuple[list[WorkWithAuthors], int]:
+    """List works with optional catalog filters and stable id ordering."""
+    filters = _catalog_list_filters(
+        DocumentType.WORK,
+        modified_by=modified_by,
+        pref_label_bo=pref_label_bo,
+        record_origin=record_origin,
+        record_status=record_status,
+        author_id=author_id,
+    )
+    body: dict[str, Any] = {
+        "query": {"bool": {"filter": filters}},
+        "sort": [{"id": {"order": "asc"}}],
+    }
+    response = search(body, size=limit, offset=offset)
+    total: int = response["hits"]["total"]["value"]
+    hits = extract_hits(response)
+    return _works_from_hits(hits), total
+
+
+def search_works(
+    title: str | None = None,
+    author_name: str | None = None,
+    *,
+    modified_by: str | None = None,
+    pref_label_bo: str | None = None,
+    record_origin: Origin | None = None,
+    record_status: RecordStatus | None = None,
+    author_id: str | None = None,
+    size: int = 20,
+) -> list[WorkWithAuthors]:
+    type_filter = _catalog_list_filters(
+        DocumentType.WORK,
+        modified_by=modified_by,
+        pref_label_bo=pref_label_bo,
+        record_origin=record_origin,
+        record_status=record_status,
+        author_id=author_id,
+    )
+    search_text_parts: list[str] = []
+    if title:
+        search_text_parts.append(title)
+    if author_name:
+        search_text_parts.append(author_name)
+
+    body = build_search_query(
+        {
+            "query": " ".join(search_text_parts) if search_text_parts else "",
+            "filter": type_filter,
+        }
+    )
+
+    response = search(body, size=size)
+    hits = extract_hits(response)
+    return _works_from_hits(hits)
 
 
 def merge_work(work_id: str, canonical_id: str, modified_by: str) -> WorkOutput:
@@ -215,12 +287,49 @@ def get_person(person_id: str) -> PersonOutput | None:
     return PersonOutput.model_validate(record)
 
 
-def search_persons(author_name: str, size: int = 20) -> list[PersonOutput]:
-    filters: list[dict[str, Any]] = [
-        {"term": {"type": DocumentType.PERSON.value}},
-        {"term": {"record_status": RecordStatus.ACTIVE.value}},
-    ]
-    body = build_search_query({"query": author_name, "filter": filters})
+def list_persons(
+    *,
+    modified_by: str | None = None,
+    pref_label_bo: str | None = None,
+    record_origin: Origin | None = None,
+    record_status: RecordStatus | None = None,
+    offset: int = 0,
+    limit: int = 50,
+) -> tuple[list[PersonOutput], int]:
+    """List persons with optional catalog filters and stable id ordering."""
+    filters = _catalog_list_filters(
+        DocumentType.PERSON,
+        modified_by=modified_by,
+        pref_label_bo=pref_label_bo,
+        record_origin=record_origin,
+        record_status=record_status,
+    )
+    body: dict[str, Any] = {
+        "query": {"bool": {"filter": filters}},
+        "sort": [{"id": {"order": "asc"}}],
+    }
+    response = search(body, size=limit, offset=offset)
+    total: int = response["hits"]["total"]["value"]
+    return [PersonOutput.model_validate(h) for h in extract_hits(response)], total
+
+
+def search_persons(
+    author_name: str | None = None,
+    *,
+    modified_by: str | None = None,
+    pref_label_bo: str | None = None,
+    record_origin: Origin | None = None,
+    record_status: RecordStatus | None = None,
+    size: int = 20,
+) -> list[PersonOutput]:
+    filters = _catalog_list_filters(
+        DocumentType.PERSON,
+        modified_by=modified_by,
+        pref_label_bo=pref_label_bo,
+        record_origin=record_origin,
+        record_status=record_status,
+    )
+    body = build_search_query({"query": (author_name or "").strip(), "filter": filters})
     response = search(body, size=size)
     return [PersonOutput.model_validate(h) for h in extract_hits(response)]
 

@@ -6,9 +6,11 @@ from api.models import (
     DocumentType,
     VolumeAnnotationInput,
     VolumeInput,
+    VolumeMatchingStatus,
     VolumeOutput,
     VolumeStatus,
 )
+from api.services.catalog_propagation import propagate_active_for_reviewed_volume_segments
 from api.services.os_client import extract_hits, get_document, search, update_document
 
 
@@ -18,6 +20,7 @@ def _volume_doc_id(rep_id: str, vol_id: str, vol_version: str, etext_source: str
 
 def list_volumes(
     status: str | None = None,
+    status_matching: str | None = None,
     etext_source: str | None = None,
     rep_id: str | None = None,
     offset: int = 0,
@@ -28,6 +31,25 @@ def list_volumes(
     ]
     if status is not None:
         filters.append({"term": {"status": status}})
+    if status_matching is not None:
+        if status_matching == VolumeMatchingStatus.PENDING.value:
+            filters.append(
+                {
+                    "bool": {
+                        "should": [
+                            {"term": {"status_matching": VolumeMatchingStatus.PENDING.value}},
+                            {
+                                "bool": {
+                                    "must_not": {"exists": {"field": "status_matching"}},
+                                }
+                            },
+                        ],
+                        "minimum_should_match": 1,
+                    }
+                }
+            )
+        else:
+            filters.append({"term": {"status_matching": status_matching}})
     if etext_source is not None:
         filters.append({"term": {"etext_source": etext_source}})
     if rep_id is not None:
@@ -54,6 +76,11 @@ def update_volume_status(volume_id: str, new_status: VolumeStatus) -> VolumeOutp
         "last_updated_at": datetime.now(UTC).isoformat(),
     }
     update_document(volume_id, partial)
+    if new_status == VolumeStatus.REVIEWED:
+        propagate_active_for_reviewed_volume_segments(
+            existing.get("segments") or [],
+            volume_id=volume_id,
+        )
     return VolumeOutput.model_validate({**existing, **partial, "id": volume_id})
 
 
@@ -195,10 +222,21 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
         if author_name_bo_list:
             internal_seg["author_name_bo"] = author_name_bo_list
 
+        if seg.title_orig_bo:
+            internal_seg["title_orig_bo"] = (
+                seg.title_orig_bo if isinstance(seg.title_orig_bo, list) else [seg.title_orig_bo]
+            )
+        if seg.author_name_orig_bo:
+            internal_seg["author_name_orig_bo"] = (
+                seg.author_name_orig_bo
+                if isinstance(seg.author_name_orig_bo, list)
+                else [seg.author_name_orig_bo]
+            )
+
         segments.append(internal_seg)
 
     # Update document with new data
-    update_data = {
+    update_data: dict[str, Any] = {
         "status": data.status.value,
         "base_text": data.base_text,
         "segments": segments,
@@ -206,5 +244,8 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
     }
 
     update_document(volume_id, update_data)
+
+    if data.status == VolumeStatus.REVIEWED:
+        propagate_active_for_reviewed_volume_segments(segments, volume_id=volume_id)
 
     return volume_id
