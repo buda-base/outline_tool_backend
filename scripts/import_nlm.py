@@ -72,7 +72,6 @@ logging.getLogger("opensearch").addFilter(_filter_os_404)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-NLM_CSV_URL = "https://eroux.fr/mw_w_i_nlm.csv.gz"
 ETEXT_SOURCE = "google_vision"
 BDRC_GITLAB_BASE = "https://gitlab.com/bdrc-data"
 OUTLINES_REPO_NAME = "outlines-20220922"
@@ -97,13 +96,13 @@ RELEVANT_PART_TYPES = {PART_TYPE_TEXT, PART_TYPE_EDITORIAL, PART_TYPE_TOC}
 # ── CSV download ───────────────────────────────────────────────────────────
 
 
-def download_nlm_csv() -> list[dict[str, str]]:
-    """Download and decompress the NLM CSV from eroux.fr.
+def download_nlm_csv(csv_url: str) -> list[dict[str, str]]:
+    """Download and decompress a gzipped CSV of (mw, w, i) tuples.
 
     Returns list of dicts with keys: mw_id, w_id, i_id.
     """
-    logger.info("Downloading NLM CSV from %s", NLM_CSV_URL)
-    response = requests.get(NLM_CSV_URL, timeout=60)
+    logger.info("Downloading NLM CSV from %s", csv_url)
+    response = requests.get(csv_url, timeout=60)
     response.raise_for_status()
 
     decompressed = gzip.decompress(response.content).decode("utf-8")
@@ -849,9 +848,14 @@ def main() -> None:
         default=DEFAULT_DATA_DIR,
         help=f"Directory for git repos (default: {DEFAULT_DATA_DIR})",
     )
+    parser.add_argument(
+        "--csv-url",
+        required=True,
+        help="URL of the gzipped CSV with mw_id, w_id, i_id columns",
+    )
     args = parser.parse_args()
 
-    rows = download_nlm_csv()
+    rows = download_nlm_csv(args.csv_url)
     versions = discover_all_gv_versions(rows)
 
     # Convert 1-based --start-from to 0-based index
