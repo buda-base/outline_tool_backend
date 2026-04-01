@@ -16,6 +16,7 @@
             "vol_id": { "type": "keyword" },
             "etext_source": { "type": "keyword" },
             "vol_version": { "type": "keyword" },
+            "batch_id": { "type": "keyword" },
             "volume_number": { "type": "short" },
             "origin": { "type": "keyword" },
             "curation": {

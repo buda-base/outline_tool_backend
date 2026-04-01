@@ -23,6 +23,7 @@ def list_volumes(
     status_matching: str | None = None,
     etext_source: str | None = None,
     rep_id: str | None = None,
+    batch_id: str | None = None,
     offset: int = 0,
     limit: int = 50,
 ) -> tuple[list[VolumeOutput], int]:
@@ -54,6 +55,8 @@ def list_volumes(
         filters.append({"term": {"etext_source": etext_source}})
     if rep_id is not None:
         filters.append({"term": {"rep_id": rep_id}})
+    if batch_id is not None:
+        filters.append({"term": {"batch_id": batch_id}})
 
     body: dict[str, Any] = {"query": {"bool": {"filter": filters}}}
     response = search(

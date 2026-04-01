@@ -14,6 +14,7 @@ async def get_available_volumes(
     status_matching: Annotated[VolumeMatchingStatus | None, Query()] = None,
     etext_source: Annotated[str | None, Query()] = None,
     rep_id: Annotated[str | None, Query()] = None,
+    batch_id: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PaginatedResponse:
@@ -23,6 +24,7 @@ async def get_available_volumes(
         status_matching=status_matching.value if status_matching else None,
         etext_source=etext_source,
         rep_id=rep_id,
+        batch_id=batch_id,
         offset=offset,
         limit=limit,
     )

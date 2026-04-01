@@ -14,6 +14,8 @@ class VolumeStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     IN_REVIEW = "in_review"
     REVIEWED = "reviewed"
+    DUPLICATE_UNDER_REVIEW = "duplicate_under_review"
+    SKIPPED = "skipped"
 
 
 class VolumeMatchingStatus(StrEnum):
@@ -208,6 +210,7 @@ class MergeRequest(BaseModel):
 class VolumeBase(BaseModel):
     vol_version: str | None = None
     etext_source: str | None = None
+    batch_id: str | None = None
     volume_number: int | None = None
     wa_id: str | None = None
     mw_id: str | None = None
