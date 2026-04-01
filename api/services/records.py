@@ -176,7 +176,7 @@ def update_work(work_id: str, data: WorkInput) -> WorkOutput:
 
 def get_work(work_id: str) -> WorkWithAuthors | None:
     record = _get_record(work_id)
-    if record is None:
+    if record is None or record.get("type") != DocumentType.WORK:
         return None
     author_ids = record.get("authors", [])
     person_map = mget_documents(author_ids)
@@ -282,7 +282,7 @@ def update_person(person_id: str, data: PersonInput) -> PersonOutput:
 
 def get_person(person_id: str) -> PersonOutput | None:
     record = _get_record(person_id)
-    if record is None:
+    if record is None or record.get("type") != DocumentType.PERSON:
         return None
     return PersonOutput.model_validate(record)
 
