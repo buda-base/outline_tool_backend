@@ -12,3 +12,5 @@ ty
 orjson>=3.9.0
 rdflib>=7.0.0
 requests>=2.31.0
+lxml>=6.0.2
+lxml-stubs
