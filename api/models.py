@@ -47,6 +47,7 @@ class RecordStatus(StrEnum):
     ACTIVE = "active"
     DUPLICATE = "duplicate"
     WITHDRAWN = "withdrawn"
+    DELETED = "deleted"
 
 
 class Origin(StrEnum):

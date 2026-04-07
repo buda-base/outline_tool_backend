@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from api.exceptions import ConflictError, NotFoundError
+from api.exceptions import ConflictError, ForbiddenError, NotFoundError
 from api.models import (
     CurationMeta,
     DocumentType,
@@ -339,3 +339,82 @@ def merge_person(person_id: str, canonical_id: str, modified_by: str) -> PersonO
     return PersonOutput.model_validate(
         _merge_record(person_id, canonical_id, modified_by, DocumentType.PERSON, "Person")
     )
+
+
+def _is_work_used_in_segments(work_id: str) -> bool:
+    """Return True if any volume segment references this work via wa_id."""
+    body: dict[str, Any] = {
+        "query": {
+            "bool": {
+                "filter": [
+                    {"term": {"type": DocumentType.VOLUME_ETEXT.value}},
+                    {
+                        "nested": {
+                            "path": "segments",
+                            "query": {"term": {"segments.wa_id": work_id}},
+                        }
+                    },
+                ]
+            }
+        }
+    }
+    response = search(body, size=1, source_excludes=["*"])
+    return response["hits"]["total"]["value"] > 0
+
+
+def _is_person_used_in_works(person_id: str) -> bool:
+    """Return True if any work document lists this person in its authors."""
+    body: dict[str, Any] = {
+        "query": {
+            "bool": {
+                "filter": [
+                    {"term": {"type": DocumentType.WORK.value}},
+                    {"term": {"authors": person_id}},
+                ]
+            }
+        }
+    }
+    response = search(body, size=1, source_excludes=["*"])
+    return response["hits"]["total"]["value"] > 0
+
+
+def delete_work(work_id: str, modified_by: str) -> WorkOutput:
+    """Soft-delete a locally created work (WA1BC prefix) if not used in any segment."""
+    if not work_id.startswith("WA1BC"):
+        raise ForbiddenError(f"Only locally created works (prefix 'WA1BC') can be deleted; got '{work_id}'")
+
+    existing = get_document(work_id)
+    if existing is None or existing.get("type") != DocumentType.WORK:
+        raise NotFoundError("Work", work_id)
+
+    if _is_work_used_in_segments(work_id):
+        raise ForbiddenError(f"Work '{work_id}' is referenced by one or more segments and cannot be deleted")
+
+    partial: dict[str, Any] = {
+        "record_status": RecordStatus.DELETED.value,
+        "curation": _build_curation(modified_by, edit_version=(existing.get("curation") or {}).get("edit_version", 0) + 1),
+    }
+    update_document(work_id, partial)
+    log_event(work_id, DocumentType.WORK.value, "delete", modified_by)
+    return WorkOutput.model_validate({**existing, **partial, "id": work_id})
+
+
+def delete_person(person_id: str, modified_by: str) -> PersonOutput:
+    """Soft-delete a locally created person (P1BC prefix) if not used in any work."""
+    if not person_id.startswith("P1BC"):
+        raise ForbiddenError(f"Only locally created persons (prefix 'P1BC') can be deleted; got '{person_id}'")
+
+    existing = get_document(person_id)
+    if existing is None or existing.get("type") != DocumentType.PERSON:
+        raise NotFoundError("Person", person_id)
+
+    if _is_person_used_in_works(person_id):
+        raise ForbiddenError(f"Person '{person_id}' is listed as an author in one or more works and cannot be deleted")
+
+    partial: dict[str, Any] = {
+        "record_status": RecordStatus.DELETED.value,
+        "curation": _build_curation(modified_by, edit_version=(existing.get("curation") or {}).get("edit_version", 0) + 1),
+    }
+    update_document(person_id, partial)
+    log_event(person_id, DocumentType.PERSON.value, "delete", modified_by)
+    return PersonOutput.model_validate({**existing, **partial, "id": person_id})

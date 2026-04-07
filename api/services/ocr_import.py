@@ -299,6 +299,7 @@ def import_ocr_from_s3(
     vol_id: str,
     vol_version: str,
     etext_source: str,
+    batch_id: str | None = None,
 ) -> str:
     """
     Download a parquet OCR file from S3 and index the resulting volume into OpenSearch.
@@ -307,7 +308,7 @@ def import_ocr_from_s3(
     """
     key = _s3_key(rep_id, vol_id, vol_version, etext_source)
     parquet_buffer = _download_from_s3(key)
-    return _import_parquet(rep_id, vol_id, vol_version, etext_source, parquet_buffer)
+    return _import_parquet(rep_id, vol_id, vol_version, etext_source, parquet_buffer, batch_id=batch_id)
 
 
 def _import_parquet(
@@ -316,6 +317,7 @@ def _import_parquet(
     vol_version: str,
     etext_source: str,
     parquet_data: BytesIO,
+    batch_id: str | None = None,
 ) -> str:
     """
     Read a parquet OCR file from memory and index the resulting volume into OpenSearch.
@@ -416,6 +418,7 @@ def _import_parquet(
         existing_segments = existing_doc.get("segments", [])
         existing_status = existing_doc.get("status", VolumeStatus.ACTIVE.value)
         existing_status_matching = existing_doc.get("status_matching", VolumeMatchingStatus.PENDING.value)
+        resolved_batch_id = batch_id if batch_id is not None else existing_doc.get("batch_id")
         logger.info(
             "Reimporting existing volume %s - preserving %d segments and status=%s",
             doc_id,
@@ -427,9 +430,10 @@ def _import_parquet(
         existing_segments = []
         existing_status = VolumeStatus.ACTIVE.value
         existing_status_matching = VolumeMatchingStatus.PENDING.value
+        resolved_batch_id = batch_id
         logger.info("Creating new volume %s", doc_id)
 
-    body = {
+    body: dict = {
         "id": doc_id,
         "type": DocumentType.VOLUME_ETEXT.value,
         "rep_id": rep_id,
@@ -450,6 +454,8 @@ def _import_parquet(
         "first_imported_at": first_imported_at,
         "last_updated_at": now,
     }
+    if resolved_batch_id is not None:
+        body["batch_id"] = resolved_batch_id
 
     index_document(doc_id, body, refresh=False)
 

@@ -12,7 +12,7 @@ from api.models import (
     WorksPaginatedResponse,
     WorkWithAuthors,
 )
-from api.services.records import create_work, get_work, list_works, merge_work, search_works, update_work
+from api.services.records import create_work, delete_work, get_work, list_works, merge_work, search_works, update_work
 
 router = APIRouter(prefix="/works", tags=["works"])
 
@@ -101,3 +101,9 @@ async def put_work_data(work_id: str, body: WorkInput) -> WorkOutput:
 async def merge_work_data(work_id: str, body: MergeRequest) -> WorkOutput:
     """Mark a work as duplicate of the canonical work."""
     return merge_work(work_id, body.canonical_id, body.modified_by)
+
+
+@router.delete("/{work_id}")
+async def delete_work_data(work_id: str, modified_by: str) -> WorkOutput:
+    """Soft-delete a locally created work (prefix 'WA1BC') that is not used in any segment."""
+    return delete_work(work_id, modified_by)

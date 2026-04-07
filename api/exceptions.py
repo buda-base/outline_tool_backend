@@ -12,3 +12,10 @@ class ConflictError(Exception):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class ForbiddenError(Exception):
+    """Raised when an operation is not allowed due to a business rule."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
