@@ -29,6 +29,12 @@
                 "analyzer": "tibetan-lenient"
             },
             "minhash_lsh": { "type": "keyword" },
+            "minhash_os": {
+                "type": "min_hash",
+                "analyzer": "tibetan-lenient",
+                "hash_count": 128,
+                "bucket_count": 64
+            },
             "text_length": { "type": "integer" },
             "synced_at": { "type": "date" }
         }
