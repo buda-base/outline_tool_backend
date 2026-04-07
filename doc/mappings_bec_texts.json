@@ -40,7 +40,8 @@
                     "type": "BM25",
                     "k1": 0.0
                 }
-            }
+            },
+            "knn": true
         },
         "analysis": {
             "normalizer": {
@@ -86,7 +87,7 @@
                 },
                 "tibetan-synonyms": {
                     "type": "synonym_graph",
-                    "synonyms_path": "tibetan-synonyms.txt"
+                    "synonyms_path": "tibetan-synonyms-flattened.txt"
                 },
                 "tibetan-for-tibetan-phonetic": {
                     "type": "tibetan-for-tibetan-phonetic"
