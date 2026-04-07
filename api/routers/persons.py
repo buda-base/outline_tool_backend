@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from api.exceptions import NotFoundError
 from api.models import MergeRequest, Origin, PersonInput, PersonOutput, PersonsPaginatedResponse, RecordStatus
-from api.services.records import create_person, get_person, list_persons, merge_person, search_persons, update_person
+from api.services.records import create_person, delete_person, get_person, list_persons, merge_person, search_persons, update_person
 
 router = APIRouter(prefix="/persons", tags=["persons"])
 
@@ -84,3 +84,9 @@ async def put_person_data(person_id: str, body: PersonInput) -> PersonOutput:
 async def merge_person_data(person_id: str, body: MergeRequest) -> PersonOutput:
     """Mark a person as duplicate of the canonical person."""
     return merge_person(person_id, body.canonical_id, body.modified_by)
+
+
+@router.delete("/{person_id}")
+async def delete_person_data(person_id: str, modified_by: str) -> PersonOutput:
+    """Soft-delete a locally created person (prefix 'P1BC') that is not listed as author in any work."""
+    return delete_person(person_id, modified_by)

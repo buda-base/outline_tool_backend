@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, ORJSONResponse
 from opensearchpy.exceptions import TransportError
 
 from api.config import index_name, opensearch_client
-from api.exceptions import ConflictError, NotFoundError
+from api.exceptions import ConflictError, ForbiddenError, NotFoundError
 from api.routers import audit as audit_router
 from api.routers import data_import as import_router
 from api.routers import matching as matching_router
@@ -73,6 +73,14 @@ async def handle_not_found(_request: Request, exc: NotFoundError) -> JSONRespons
 async def handle_conflict(_request: Request, exc: ConflictError) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT,
+        content={"detail": str(exc)},
+    )
+
+
+@app.exception_handler(ForbiddenError)
+async def handle_forbidden(_request: Request, exc: ForbiddenError) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
         content={"detail": str(exc)},
     )
 

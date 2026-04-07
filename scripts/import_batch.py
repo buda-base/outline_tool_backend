@@ -5,7 +5,9 @@ Reads a CSV file (w_id, i_id, i_version, etext_source) and imports
 each volume from the S3 parquet files into OpenSearch.
 
 Usage:
-    python -m scripts.import_batch path/to/batch.csv [--dry-run] [--start-from INDEX]
+    python -m scripts.import_batch path/to/batch.csv --batch-id ID [--dry-run] [--force] [--start-from INDEX]
+
+By default already-indexed documents are skipped; use --force to reimport and overwrite them.
 
 Requires AWS credentials configured (for S3 access) and the OpenSearch
 environment variables from .env.
@@ -52,6 +54,7 @@ def load_csv(path: str) -> list[dict[str, str]]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Import volumes from S3 parquet files")
     parser.add_argument("csv", help="Path to the batch CSV file (w_id,i_id,i_version,etext_source)")
+    parser.add_argument("--batch-id", required=True, help="Batch identifier to tag each imported document with")
     parser.add_argument("--dry-run", action="store_true", help="Only list what would be imported")
     parser.add_argument("--force", action="store_true", help="Reimport volumes even if already indexed")
     parser.add_argument(
@@ -104,7 +107,7 @@ def main() -> None:
 
         try:
             t0 = time.monotonic()
-            doc_id = import_ocr_from_s3(w_id, i_id, i_version, etext_source)
+            doc_id = import_ocr_from_s3(w_id, i_id, i_version, etext_source, batch_id=args.batch_id)
             elapsed = time.monotonic() - t0
             logger.info("  ✓ Indexed as %s  (%.1fs)", doc_id, elapsed)
             succeeded += 1
