@@ -1,0 +1,120 @@
+{
+    "mappings": {
+        "properties": {
+            "volume_id": { "type": "keyword" },
+            "vol_id": { "type": "keyword" },
+            "mw_id": { "type": "keyword" },
+            "etext_source": { "type": "keyword" },
+            "segment_idx": { "type": "integer" },
+            "title_bo": {
+                "type": "text",
+                "analyzer": "tibetan-lenient",
+                "index_options": "offsets",
+                "fields": {
+                    "exact": {
+                        "type": "text",
+                        "analyzer": "tibetan-exact",
+                        "index_options": "offsets"
+                    }
+                }
+            },
+            "wa_id_orig": { "type": "keyword" },
+            "wa_id_matched": { "type": "keyword" },
+            "wa_id_match_candidates": { "type": "keyword" },
+            "wa_id_reviewed": { "type": "keyword" },
+            "cstart": { "type": "integer" },
+            "cend": { "type": "integer" },
+            "text_bo": {
+                "type": "text",
+                "analyzer": "tibetan-lenient"
+            },
+            "minhash_lsh": { "type": "keyword" },
+            "text_length": { "type": "integer" },
+            "synced_at": { "type": "date" }
+        }
+    },
+    "settings": {
+        "index": {
+            "similarity": {
+                "default": {
+                    "type": "BM25",
+                    "k1": 0.0
+                }
+            }
+        },
+        "analysis": {
+            "normalizer": {
+                "id_normalizer": {
+                    "type": "custom",
+                    "char_filter": [],
+                    "filter": ["lowercase"]
+                }
+            },
+            "analyzer": {
+                "tibetan-lenient": {
+                    "tokenizer": "tibetan-default",
+                    "filter": [
+                        "tibetan-lenient",
+                        "tibetan-synonyms",
+                        "tibetan_stop_words_filter"
+                    ],
+                    "char_filter": ["tibetan-lenient"]
+                },
+                "tibetan-exact": {
+                    "tokenizer": "tibetan-exact",
+                    "char_filter": ["tibetan-exact"]
+                },
+                "tibetan-phonetic": {
+                    "tokenizer": "tibetan-default",
+                    "filter": [
+                        "tibetan-lenient",
+                        "tibetan-for-tibetan-phonetic"
+                    ],
+                    "char_filter": ["tibetan-lenient"]
+                }
+            },
+            "filter": {
+                "tibetan-lenient": {
+                    "type": "tibetan",
+                    "remove_affixes": true,
+                    "normalize_paba": true
+                },
+                "tibetan_stop_words_filter": {
+                    "type": "stop",
+                    "ignore_case": false,
+                    "stopwords": ["འི", "འིས", "ཡིས"]
+                },
+                "tibetan-synonyms": {
+                    "type": "synonym_graph",
+                    "synonyms_path": "tibetan-synonyms.txt"
+                },
+                "tibetan-for-tibetan-phonetic": {
+                    "type": "tibetan-for-tibetan-phonetic"
+                }
+            },
+            "char_filter": {
+                "tibetan-lenient": {
+                    "type": "tibetan",
+                    "lenient": true
+                },
+                "tibetan-exact": {
+                    "type": "tibetan",
+                    "lenient": false,
+                    "keep_shad": true
+                }
+            },
+            "tokenizer": {
+                "tibetan-default": {
+                    "type": "tibetan",
+                    "split_non_standard": true,
+                    "keep_shad": false
+                },
+                "tibetan-exact": {
+                    "type": "tibetan",
+                    "split_non_standard": false,
+                    "keep_shad": true
+                }
+            }
+        }
+    }
+}
