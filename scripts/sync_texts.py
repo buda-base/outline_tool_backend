@@ -287,6 +287,13 @@ def bulk_upsert(
             return to_index_count
 
         except (ConnectionTimeout, Exception) as e:
+            # Check for disk watermark error
+            error_str = str(e)
+            if "disk usage exceeded flood-stage watermark" in error_str:
+                logger.error("CRITICAL: OpenSearch disk usage exceeded flood-stage watermark. Index is read-only.")
+                logger.error("Please clear disk space and run 'python -m scripts.fix_disk_block' to unlock indices.")
+                raise e
+
             retries += 1
             if retries > MAX_RETRIES:
                 logger.error("Max retries reached for bulk upsert. Failing.")
