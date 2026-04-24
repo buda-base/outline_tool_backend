@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 
 class VolumeStatus(StrEnum):
@@ -339,6 +339,15 @@ class MatchCandidate(BaseModel):
 class CatalogBreakdown(BaseModel):
     with_preexisting_catalog: int = 0
     no_preexisting_catalog: int = 0
+
+
+class VolumeBatchStatusReport(RootModel[dict[str, dict[str, int]]]):
+    """
+    Volumes in a ``batch_id`` (Annotation ``status`` field → count per batch).
+
+    Keys are ``batch_id`` values; inner keys are stored ``status`` values (e.g. ``active``, ``reviewed``).
+    Volumes with no or empty ``batch_id`` are not included.
+    """
 
 
 class Stats(BaseModel):
