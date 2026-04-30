@@ -137,7 +137,7 @@ def scroll_segmented_volumes(
         body=query_body,
         size=SCROLL_SIZE,
         scroll=SCROLL_TIMEOUT,
-        _source_includes=["vol_id", "vol_version", "rep_id", "wa_id", "mw_id", "etext_source", "segments", "chunks"],
+        _source_includes=["vol_id", "vol_version", "rep_id", "wa_id", "mw_id", "etext_source", "segments", "chunks", "pages"],
     )
 
     scroll_id = response.get("_scroll_id")
@@ -172,6 +172,55 @@ def _get_existing_text_docs(doc_ids: list[str]) -> dict[str, dict[str, Any]]:
     return {doc["_id"]: doc["_source"] for doc in response["docs"] if doc.get("found")}
 
 
+def _compute_boundaries(
+    segments: list[dict[str, Any]],
+    pages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Compute clean boundaries for each segment by detecting page-level overlaps.
+
+    When two adjacent segments share a page (segment N's cend >= segment N+1's
+    cstart), we split at the midpoint of the overlap to avoid including foreign
+    text from the adjacent work.
+
+    Returns a list parallel to segments with keys:
+        cstart_clean, cend_clean, boundary_start, boundary_end
+    """
+    page_starts = {p["cstart"] for p in pages} if pages else set()
+    page_ends = {p["cend"] for p in pages} if pages else set()
+
+    boundaries: list[dict[str, Any]] = []
+    for i, seg in enumerate(segments):
+        cs = seg.get("cstart", 0)
+        ce = seg.get("cend", 0)
+        b_start = "clean"
+        b_end = "clean"
+        cs_clean = cs
+        ce_clean = ce
+
+        if i > 0:
+            prev_ce = segments[i - 1].get("cend", 0)
+            if prev_ce > cs:
+                b_start = "shared_page"
+                cs_clean = cs + (prev_ce - cs + 1) // 2
+
+        if i < len(segments) - 1:
+            next_cs = segments[i + 1].get("cstart", 0)
+            if ce > next_cs:
+                b_end = "shared_page"
+                ce_clean = next_cs + (ce - next_cs) // 2
+            elif ce in page_starts and ce not in page_ends:
+                b_end = "page_snap"
+
+        boundaries.append({
+            "cstart_clean": cs_clean,
+            "cend_clean": ce_clean,
+            "boundary_start": b_start,
+            "boundary_end": b_end,
+        })
+
+    return boundaries
+
+
 def build_text_docs(volume: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """Extract text documents from a volume's segments.
 
@@ -186,6 +235,9 @@ def build_text_docs(volume: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     etext_source = volume.get("etext_source", "")
     segments = volume.get("segments", [])
     chunks = volume.get("chunks", [])
+    pages = volume.get("pages", [])
+
+    boundaries = _compute_boundaries(segments, pages)
 
     results: list[tuple[str, dict[str, Any]]] = []
 
@@ -202,6 +254,13 @@ def build_text_docs(volume: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         text = _extract_text_from_chunks(chunks, cstart, cend)
         if len(text.strip()) < MIN_TEXT_LENGTH:
             continue
+
+        bnd = boundaries[idx]
+        cs_clean = bnd["cstart_clean"]
+        ce_clean = bnd["cend_clean"]
+        text_clean = _extract_text_from_chunks(chunks, cs_clean, ce_clean)
+
+        minhash_text = text_clean if len(text_clean.strip()) >= MIN_TEXT_LENGTH else text
 
         seg_wa_id = seg.get("wa_id")
         seg_mw_id = seg.get("mw_id") or volume_mw_id+"_S"+str(idx)
@@ -224,8 +283,12 @@ def build_text_docs(volume: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
             "wa_id_orig": seg_wa_id,
             "cstart": cstart,
             "cend": cend,
+            "cstart_clean": cs_clean,
+            "cend_clean": ce_clean,
+            "boundary_start": bnd["boundary_start"],
+            "boundary_end": bnd["boundary_end"],
             "text_bo": text,
-            "minhash_lsh": compute_lsh_bands(text),
+            "minhash_lsh": compute_lsh_bands(minhash_text),
             "text_length": len(text),
             "synced_at": datetime.now(UTC).isoformat(),
         }

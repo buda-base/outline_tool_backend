@@ -129,13 +129,30 @@ def fetch_texts(mw_ids: list[str]) -> dict[str, dict[str, Any]]:
     result = {}
     for doc in response["docs"]:
         if doc.get("found"):
+            src = doc["_source"]
+            full_text = src["text_bo"]
+            cstart = src.get("cstart", 0)
+            cend = src.get("cend", 0)
+            cs_clean = src.get("cstart_clean")
+            ce_clean = src.get("cend_clean")
+
+            if cs_clean is not None and ce_clean is not None and cend > cstart:
+                trim_start = cs_clean - cstart
+                trim_end = len(full_text) - (cend - ce_clean)
+                text_clean = full_text[max(0, trim_start):max(0, trim_end)]
+            else:
+                text_clean = full_text
+
             result[doc["_id"]] = {
-                "text_bo": doc["_source"]["text_bo"],
-                "text_length": doc["_source"].get("text_length", len(doc["_source"]["text_bo"])),
-                "title_bo": doc["_source"].get("title_bo", ""),
-                "wa_id_orig": doc["_source"].get("wa_id_orig"),
-                "etext_source": doc["_source"].get("etext_source", "unknown"),
-                "minhash_lsh": doc["_source"].get("minhash_lsh", []),
+                "text_bo": full_text,
+                "text_clean": text_clean,
+                "text_length": src.get("text_length", len(full_text)),
+                "title_bo": src.get("title_bo", ""),
+                "wa_id_orig": src.get("wa_id_orig"),
+                "etext_source": src.get("etext_source", "unknown"),
+                "minhash_lsh": src.get("minhash_lsh", []),
+                "boundary_start": src.get("boundary_start", "unknown"),
+                "boundary_end": src.get("boundary_end", "unknown"),
             }
     return result
 
@@ -210,12 +227,15 @@ def analyze_group(
 
     pairs_data = []
     for id_a, id_b in all_combos:
-        text_a = texts[id_a]["text_bo"]
-        text_b = texts[id_b]["text_bo"]
+        text_a = texts[id_a]["text_clean"]
+        text_b = texts[id_b]["text_clean"]
 
         src_a = texts[id_a].get("etext_source", "unknown")
         src_b = texts[id_b].get("etext_source", "unknown")
         pair_type = _pair_type(src_a, src_b)
+
+        bnd_a = f"{texts[id_a].get('boundary_start', '?')}/{texts[id_a].get('boundary_end', '?')}"
+        bnd_b = f"{texts[id_b].get('boundary_start', '?')}/{texts[id_b].get('boundary_end', '?')}"
 
         pair_result: dict[str, Any] = {
             "id_a": id_a,
@@ -223,6 +243,8 @@ def analyze_group(
             "src_a": src_a,
             "src_b": src_b,
             "pair_type": pair_type,
+            "bnd_a": bnd_a,
+            "bnd_b": bnd_b,
             "title_a": (texts[id_a].get("title_bo") or "")[:50],
             "title_b": (texts[id_b].get("title_bo") or "")[:50],
             **char_distance(text_a, text_b),
@@ -313,6 +335,21 @@ def _print_section(
           f"min={min(ds_sh)}  max={max(ds_sh)}")
     print(f"  {'DS match rate:':20s} {ds_rate:.1%} of pairs share >= 1 band")
 
+    # Boundary info
+    bnd_counts: dict[str, int] = defaultdict(int)
+    for p in pairs:
+        for side in ("bnd_a", "bnd_b"):
+            bnd = p.get(side, "unknown/unknown")
+            if "shared_page" in bnd:
+                bnd_counts["shared_page"] += 1
+            elif "unknown" in bnd:
+                bnd_counts["unknown"] += 1
+            else:
+                bnd_counts["clean"] += 1
+    total_sides = len(pairs) * 2
+    if bnd_counts.get("shared_page", 0) > 0:
+        print(f"  {'Boundary noise:':20s} {bnd_counts['shared_page']}/{total_sides} text sides have shared-page overlap")
+
 
 def print_results(
     results: list[dict[str, Any]],
@@ -363,11 +400,11 @@ def print_results(
     # Per-pair detail table
     print("--- PER-PAIR DETAIL (sorted by Levenshtein similarity) ---")
     all_pairs.sort(key=lambda p: p.get("lev_similarity", 0), reverse=True)
-    print(f"  {'d_id':>8s}  {'type':>6s}  {'id_a':>35s}  {'id_b':>35s}  "
+    print(f"  {'d_id':>8s}  {'type':>6s}  {'id_a':>35s}  {'bnd_a':>20s}  {'id_b':>35s}  {'bnd_b':>20s}  "
           f"{'len_r':>5s}  {'levSim':>6s}  {'nLev':>5s}  "
           f"{'py_1':>5s}  {'py_3':>5s}  {'py_5':>5s}  "
           f"{'os_1':>5s}  {'os_3':>5s}  {'os_5':>5s}  {'os_mh':>5s}  {'ds_b':>4s}")
-    print("  " + "-" * 190)
+    print("  " + "-" * 230)
 
     for p in all_pairs:
         d_id = ""
@@ -376,7 +413,8 @@ def print_results(
                 d_id = g["d_id"]
                 break
         print(
-            f"  {d_id:>8s}  {p.get('pair_type', '?'):>6s}  {p['id_a']:>35s}  {p['id_b']:>35s}  "
+            f"  {d_id:>8s}  {p.get('pair_type', '?'):>6s}  {p['id_a']:>35s}  {p.get('bnd_a', '?'):>20s}  "
+            f"{p['id_b']:>35s}  {p.get('bnd_b', '?'):>20s}  "
             f"{p['len_ratio']:5.2f}  {p.get('lev_similarity', 0):6.3f}  {p.get('norm_lev', 0):5.3f}  "
             f"{p.get('py_j_1', 0):5.3f}  {p.get('py_j_3', 0):5.3f}  {p.get('py_j_5', 0):5.3f}  "
             f"{p.get('os_j_1', 0):5.3f}  {p.get('os_j_3', 0):5.3f}  {p.get('os_j_5', 0):5.3f}  "

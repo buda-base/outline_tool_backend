@@ -27,6 +27,10 @@
             "wa_id_reviewed": { "type": "keyword" },
             "cstart": { "type": "integer" },
             "cend": { "type": "integer" },
+            "cstart_clean": { "type": "integer" },
+            "cend_clean": { "type": "integer" },
+            "boundary_start": { "type": "keyword" },
+            "boundary_end": { "type": "keyword" },
             "text_bo": {
                 "type": "text",
                 "analyzer": "tibetan-lenient",
@@ -38,6 +42,19 @@
                 }
             },
             "minhash_lsh": { "type": "keyword" },
+            "text_bo_embedding": {
+                "type": "knn_vector",
+                "dimension": 100,
+                "method": {
+                    "name": "hnsw",
+                    "space_type": "cosinesimil",
+                    "engine": "lucene",
+                    "parameters": {
+                        "m": 16,
+                        "ef_construction": 100
+                    }
+                }
+            },
             "text_length": { "type": "integer" },
             "synced_at": { "type": "date" }
         }
@@ -50,6 +67,7 @@
                     "k1": 0.0
                 }
             },
+            "knn.algo_param.ef_search": 100,
             "knn": true
         },
         "analysis": {
